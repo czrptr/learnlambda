@@ -7,10 +7,10 @@ export class TokenizeError extends Error {
     ) {
         super(message); 
     }
-    
+
     print(): void {
-		console.log(" ".repeat(this.position) + "^");
-		console.error(this.message);
+        console.log(" ".repeat(this.position) + "^");
+        console.error(this.message);
     }
 }
 
@@ -24,7 +24,7 @@ export type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: s
 
 export function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
     const separator = /^\s+/;
-    
+
     let result: Array<T> = [];
     let temp: Array<T> = [];
     let i = 0;

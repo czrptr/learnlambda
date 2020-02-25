@@ -2,11 +2,11 @@ import { Token, TokenizeFunction, TokenizeError } from "./tokenize";
 
 export class ParseError extends Error {
 	constructor(
-        readonly position: number,
-        message?: string
-    ) {
+		readonly position: number,
+		message?: string
+	) {
 		super(message); 
-    }
+	}
 
 	print(): void {
 		console.log(" ".repeat(this.position) + "^");
