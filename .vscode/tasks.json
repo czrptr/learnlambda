@@ -6,7 +6,7 @@
         {
             "label": "Run",
             "type": "shell",
-            "command": "node ${workspaceRoot}/src/main.js",
+            "command": "node ${workspaceRoot}/out/main.js",
             "options": {
                 "cwd": "${workspaceRoot}/out"
             },
