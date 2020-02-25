@@ -5,13 +5,13 @@ export class TokenizeError extends Error {
         readonly position: number,
         message?: string
     ) {
-		super(message); 
+        super(message); 
     }
     
     print(): void {
 		console.log(" ".repeat(this.position) + "^");
 		console.error(this.message);
-	}
+    }
 }
 
 export interface Token {
