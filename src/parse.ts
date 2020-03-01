@@ -1,13 +1,9 @@
-import {
-	Token
-} from "./tokenize";
-
-export class ParseError extends Error {
+class ParseError extends Error {
 	constructor(
 		public readonly position: number,
 		message?: string
 	) {
-		super(message); 
+		super(message);
 	}
 
 	public toPrint(): [string, string] {
@@ -43,7 +39,9 @@ class Context {
 	}
 }
 
-export class Parser<T extends Token> {
+import { Token } from "./tokenize";
+
+class Parser<T extends Token> {
 	private index: number;
 	protected context: Context;
 
@@ -78,7 +76,7 @@ export class Parser<T extends Token> {
 			return false;
 		return (this.tokens[this.index].id == id);
 	}
-	
+
 	public skipIs(id: any): boolean {
 		if (this.index >= this.tokens.length)
 			return false;
@@ -98,3 +96,8 @@ export class Parser<T extends Token> {
 		}
 	}
 }
+
+export {
+	ParseError,
+	Parser
+};

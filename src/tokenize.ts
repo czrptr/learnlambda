@@ -1,11 +1,9 @@
-import "./utils";
-
-export class TokenizeError extends Error {
+class TokenizeError extends Error {
 	constructor(
 		public readonly position: number,
 		message?: string
 	) {
-		super(message); 
+		super(message);
 	}
 
 	public toPrint(): [string, string] {
@@ -13,15 +11,15 @@ export class TokenizeError extends Error {
 	}
 }
 
-export interface Token {
+interface Token {
 	readonly id: any;
 	readonly start: number;
 	readonly value: string;
 }
 
-export type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: string, pos: number) => void;
+type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: string, pos: number) => void;
 
-export function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
+function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
 	const separator = /^\s+/;
 
 	let result: Array<T> = [];
@@ -51,3 +49,10 @@ export function tokenize<T extends Token>(expression: string, rules: Array<[RegE
 	}
 	return [...result, ...temp];
 }
+
+export {
+	TokenizeError,
+	Token,
+	TokenizeFunction,
+	tokenize
+};
