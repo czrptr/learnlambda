@@ -2,7 +2,6 @@
 	"compilerOptions": {
 	"types": [
 		"node",
-		"jest"
 	],
 	"target": "ES6",
 	"module": "commonjs",
@@ -15,11 +14,5 @@
 	"strict": true,
 	"strictNullChecks": true,
 	"noImplicitThis": true,
-	},
-	"include": [
-		"./src/**/*"
-	],
-	"exclude": [
-		"./src/tests/**/*"
-	]
+	}
 }
