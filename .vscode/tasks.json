@@ -5,23 +5,18 @@
     "tasks": [
         {
             "label": "Run",
-            "type": "shell",
-            "command": "node ${workspaceRoot}/out/main.js",
-            "options": {
-                "cwd": "${workspaceRoot}/out"
-            },
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "type": "typescript",
-            "tsconfig": "tsconfig.json",
-            "problemMatcher": [
-                "$tsc"
-            ]
-        }
+			"type": "shell",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"linux": {
+				"command": "node ${workspaceRoot}/out/main.js",
+				"options": {
+					"cwd": "${workspaceRoot}/out"
+				},
+			},
+			"problemMatcher": []
+		}
     ]
 }
