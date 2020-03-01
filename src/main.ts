@@ -1,9 +1,3 @@
-import { TokenizeError } from "./tokenize";
-import { ParseError } from "./parse";
-
-let log = console.log;
-let err = console.error;
-
 const exprs = [
 	/* untyped */
 	
@@ -42,31 +36,33 @@ const exprs = [
 	// "λx:([Nat -> Nat -> Nat, (Bool)]).x",
 ];
 
-import { tokenize, parse, substitute, vars, fresh, Identifier } from "./untyped";
-// import { tokenize, parse } from "./typed";
+import { tokenize, parse, evaluate } from "./untyped";
+import { TokenizeError } from "./tokenize";
+import { ParseError } from "./parse";
 
-// for (const expr of exprs) {
-// 	try {
-// 		const tokens = tokenize(expr);
-// 		const ast = parse(tokens);
-// 		// log(tokens + "");
-// 		// log(ast);
-// 		log(`"${expr}" -> "${ast} | ${ast.toDeBruijnString()}"`);
-// 	} catch (e) {
-// 		log(expr);
-// 		if (e instanceof TokenizeError || e instanceof ParseError)
-// 			e.print();
-// 		else
-// 			err("invalid λ-term");
-// 	}
-// }
+process.stdin.setEncoding("utf8");
 
-const expr = parse(tokenize("(λx. λy. z x (λu. u x)) (λx. w x)"));
-const target = "w";
-const subst = new Identifier("g", 0);
-// const subst = parse(tokenize("λx.x"));
+function print(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean {
+	return process.stdout.write(buffer, cb);
+};
 
-const result = substitute(expr, target, subst);
-
-log(`${expr} (${expr.toDeBruijnString()})`);
-log(`(${expr})[${target}/${subst}] = ${result} (${result.toDeBruijnString()})`);
+print("λ> ");
+process.stdin.on("data", (buffer) => {
+	const input = buffer.toString().trim();
+	if (input == "quit")
+		process.exit();
+	try {
+		const expr = parse(tokenize(input.replace("\\", "λ")));
+		const evalExpr = evaluate(expr);
+		print(`\n${evalExpr}\n${evalExpr.toDeBruijnString()}`);
+	} catch (e) {
+		print(`\n${input}\n`);
+		if (e instanceof TokenizeError || e instanceof ParseError) {
+			const [errPos, errMsg] = e.toPrint();
+			print(`${errPos}\n${errMsg}`);
+		} else
+			print("invalid λ-term");
+	} finally {
+		print("\n\nλ> ");
+	}
+});
