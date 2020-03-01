@@ -237,6 +237,34 @@ function equals(n1: ASTNode, n2: ASTNode): boolean {
 	return n1.toDeBruijnString() == n2.toDeBruijnString();
 }
 
+function bound(ast: ASTNode): Array<string>  {
+	const helper = (ast: ASTNode) => {
+		if (ast instanceof Identifier)
+			return [];
+		else if (ast instanceof Application)
+			return [...bound(ast.left), ...bound(ast.right)];
+		else
+			return [ast.binding, ...bound(ast.body)];
+	};
+
+	const ret = helper(ast);
+	return ret.filter((v, i) => ret.indexOf(v) == i);
+}
+
+function free(ast: ASTNode): Array<string>  {
+	const helper = (ast: ASTNode) => {
+		if (ast instanceof Identifier)
+			return [ast.value];
+		else if (ast instanceof Application)
+			return [...free(ast.left), ...free(ast.right)];
+		else
+			return [...free(ast.body)].filter(el => el != ast.binding);
+	};
+
+	const ret = helper(ast);
+	return ret.filter((v, i) => ret.indexOf(v) == i);
+}
+
 function vars(ast: ASTNode): Array<string> {
 	const helper = (ast: ASTNode) => {
 		if (ast instanceof Identifier)
@@ -278,7 +306,9 @@ function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
 	else if (expr.binding == target)
 		return expr;
-	else {
+	else if (free(value).indexOf(expr.binding) == -1) {
+		return new Abstraction(expr.binding, subst(expr.body, target, value));
+	} else {
 		const f = fresh(expr);
 		const avoidantBody = capSubst(expr.body, expr.binding, new Identifier(f, 0));
 		return new Abstraction(f, subst(avoidantBody, target, value));
@@ -308,11 +338,30 @@ function evaluate(expr: ASTNode): ASTNode {
 	return eval2;
 }
 
+class ExecutionContext {
+	public aliases: Map<string, ASTNode>;
+
+	constructor() {
+		this.aliases = new Map();
+	}
+
+	public forwardAlias(ast: ASTNode): ASTNode {
+		let ret = ast;
+		this.aliases.forEach((value, key) => {
+			ret = substitute(ret, key, value);
+		});
+		return ret;
+	}
+
+	//TODO backwardAlias
+
+	public evaluate(expression: string): ASTNode {
+		return evaluate(this.forwardAlias(parse(tokenize(expression))));
+	}
+}
+
 export { TokenizeError } from './tokenize';
 export { ParseError } from './parse';
 export {
-	tokenize,
-	parse,
-	evaluate,
-	equals
+	ExecutionContext
 };
