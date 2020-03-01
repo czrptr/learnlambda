@@ -1,5 +1,7 @@
 /* ====== Tokenization ====== */
 
+import "./utils/array";
+
 import {
 	Token as BaseToken,
 	TokenizeFunction as BaseTokenizeFunction,
@@ -15,7 +17,7 @@ enum Id {
 	Identifier
 }
 
-export class Token implements BaseToken {
+class Token implements BaseToken {
 	public static Id = Id;
 
 	constructor(
@@ -68,7 +70,7 @@ const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^[_0-9A-Z]+/, isNotIdStart]
 ];
 
-export function tokenize(expression: string): Array<Token> {
+function tokenize(expression: string): Array<Token> {
 	return baseTokenize(expression, rules);
 }
 
@@ -79,19 +81,18 @@ import {
 	ParseError
 } from "./parse";
 
-//TODO remove export used for testing
-export class Identifier {
+class Identifier {
 	public readonly isSimple: boolean = true;
 
 	constructor(
 		public readonly value: string,
 		public deBruijn: number
 	) {}
-	
+
 	public toString(): string {
 		return this.value;
 	}
-	
+
 	public toDeBruijnString(): string {
 		return `${this.deBruijn}`;
 	}
@@ -101,14 +102,14 @@ class Abstraction {
 	public readonly isSimple: boolean = false;
 
 	constructor(
-		public readonly binding: string, 
+		public readonly binding: string,
 		public readonly body: ASTNode
 	) {}
-	
+
 	public toString(): string {
 		return `λ${this.binding}.${this.body}`;
 	}
-	
+
 	public toDeBruijnString(): string {
 		return `λ ${this.body.toDeBruijnString()}`;
 	}
@@ -123,7 +124,7 @@ class Application {
 	) {
 		this.isSimple = left.isSimple && right instanceof Identifier;
 	}
-	
+
 	toString(): string {
 		if (this.isSimple) {
 			return `${this.left} ${this.right}`;
@@ -135,7 +136,7 @@ class Application {
 			return `(${this.left}) (${this.right})`;
 		}
 	}
-	
+
 	toDeBruijnString(): string {
 		if (this.isSimple) {
 			return `${this.left.toDeBruijnString()} ${this.right.toDeBruijnString()}`;
@@ -182,7 +183,7 @@ class Parser extends BaseParser<Token> {
 			return this.application();
 		}
 	}
-	
+
 	public application(): ASTNode {
 		let lhs = this.atom()!;
 		while (true) {
@@ -193,7 +194,7 @@ class Parser extends BaseParser<Token> {
 				lhs = new Application(lhs, rhs);
 		}
 	}
-	
+
 	public atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
 			throw new ParseError(this.tokens[this.currentTokenIndex - 1].start, "'λ' expected");
@@ -215,10 +216,10 @@ class Parser extends BaseParser<Token> {
 	}
 }
 
-export function parse(tokens: Array<Token>): ASTNode {
+function parse(tokens: Array<Token>): ASTNode {
 	const parser = new Parser(tokens);
 	const ast = parser.term();
-	
+
 	let index = parser.maxIndex;
 	let dict: Map<string, number> = new Map();
 	for (let free of parser.free) {
@@ -236,7 +237,7 @@ function equals(n1: ASTNode, n2: ASTNode): boolean {
 	return n1.toDeBruijnString() == n2.toDeBruijnString();
 }
 
-export function vars(ast: ASTNode): Array<string> {
+function vars(ast: ASTNode): Array<string> {
 	const helper = (ast: ASTNode) => {
 		if (ast instanceof Identifier)
 			return [ast.value];
@@ -250,7 +251,7 @@ export function vars(ast: ASTNode): Array<string> {
 	return ret.filter((v, i) => ret.indexOf(v) == i);
 }
 
-export function fresh(ast: ASTNode): string {
+function fresh(ast: ASTNode): string {
 	const used = vars(ast);
 	let i = 0;
 	let f = `f${i}`;
@@ -266,7 +267,7 @@ function capSubst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
 	else if (expr.binding == target)
 		return expr;
-	else 
+	else
 		return new Abstraction(expr.binding, capSubst(expr.body, target, value));
 }
 
@@ -285,7 +286,7 @@ function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 }
 
 // TODO: make more efficient
-export function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 	return parse(tokenize(subst(expr, target, value).toString()));
 }
 
@@ -299,10 +300,19 @@ function evalOnce(expr: ASTNode): ASTNode {
 	return expr;
 }
 
-export function evaluate(expr: ASTNode): ASTNode {
+function evaluate(expr: ASTNode): ASTNode {
 	let eval1 = evalOnce(expr);
 	let eval2 = evalOnce(eval1);
 	while (!equals(eval1, eval2))
 		[eval1, eval2] = [eval2, evalOnce(eval2)];
 	return eval2;
 }
+
+export { TokenizeError } from './tokenize';
+export { ParseError } from './parse';
+export {
+	tokenize,
+	parse,
+	evaluate,
+	equals
+};

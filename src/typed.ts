@@ -1,5 +1,7 @@
 /* ====== Tokenization ====== */
 
+import "./utils/array";
+
 import {
 	Token as BaseToken,
 	TokenizeFunction as BaseTokenizeFunction,
@@ -24,7 +26,7 @@ enum Id {
 	Identifier
 }
 
-export class Token implements BaseToken {
+class Token implements BaseToken {
 	public static Id = Id;
 
 	constructor(
@@ -86,7 +88,7 @@ const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^[_0-9]+/, isNotIdStart]
 ];
 
-export function tokenize(expression: string): Array<Token> {
+function tokenize(expression: string): Array<Token> {
 	return baseTokenize(expression, rules);
 }
 
@@ -151,7 +153,7 @@ class Identifier {
 	constructor(
 		public readonly value: string
 	) {}
-	
+
 	public toString(): string {
 		return this.value;
 	}
@@ -165,7 +167,7 @@ class Abstraction {
 		public readonly type: Type,
 		public readonly body: ASTNode
 	) {}
-	
+
 	public toString(): string {
 		return `λ${this.parameter}:${this.type}.${this.body}`;
 	}
@@ -180,7 +182,7 @@ class Application {
 	) {
 		this.isSimple = left.isSimple && right instanceof Identifier;
 	}
-	
+
 	public toString(): string {
 		if (this.isSimple) {
 			return `${this.left} ${this.right}`;
@@ -248,7 +250,7 @@ class Parser extends BaseParser<Token> {
 			throw new ParseError(this.currentPosition, "type expected")
 		}
 	}
-	
+
 	public term(): ASTNode {
 		if (this.done) {
 			throw new ParseError(this.currentPosition, "λ-term expected");
@@ -264,7 +266,7 @@ class Parser extends BaseParser<Token> {
 			return this.application();
 		}
 	}
-	
+
 	public application(): ASTNode {
 		let lhs = this.atom()!;
 		while (true) {
@@ -275,7 +277,7 @@ class Parser extends BaseParser<Token> {
 				lhs = new Application(lhs, rhs);
 		}
 	}
-	
+
 	public atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
 			throw new ParseError(this.tokens[this.currentTokenIndex - 1].start, "'λ' expected");
@@ -293,6 +295,13 @@ class Parser extends BaseParser<Token> {
 	}
 }
 
-export function parse(tokens: Array<Token>): ASTNode {
+function parse(tokens: Array<Token>): ASTNode {
 	return new Parser(tokens).term();
 }
+
+export { TokenizeError } from './tokenize';
+export { ParseError } from './parse';
+export {
+	tokenize,
+	parse
+};
