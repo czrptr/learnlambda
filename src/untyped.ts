@@ -232,7 +232,6 @@ export function parse(tokens: Array<Token>): ASTNode {
 	return ast;
 }
 
-// FIXME
 function equals(n1: ASTNode, n2: ASTNode): boolean {
 	return n1.toDeBruijnString() == n2.toDeBruijnString();
 }
@@ -288,4 +287,22 @@ function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 // TODO: make more efficient
 export function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 	return parse(tokenize(subst(expr, target, value).toString()));
+}
+
+function evalOnce(expr: ASTNode): ASTNode {
+	if (expr instanceof Application) {
+		if (expr.left instanceof Abstraction)
+			return substitute(expr.left.body, expr.left.binding, expr.right);
+		else
+			return new Application(evalOnce(expr.left), evalOnce(expr.right));
+	}
+	return expr;
+}
+
+export function evaluate(expr: ASTNode): ASTNode {
+	let eval1 = evalOnce(expr);
+	let eval2 = evalOnce(eval1);
+	while (!equals(eval1, eval2))
+		[eval1, eval2] = [eval2, evalOnce(eval2)];
+	return eval2;
 }
