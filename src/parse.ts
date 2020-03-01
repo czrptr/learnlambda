@@ -1,30 +1,62 @@
-import { Token, TokenizeFunction, TokenizeError } from "./tokenize";
+import {
+	Token
+} from "./tokenize";
 
 export class ParseError extends Error {
 	constructor(
-		readonly position: number,
+		public readonly position: number,
 		message?: string
 	) {
 		super(message); 
 	}
 
-	print(): void {
+	public print(): void {
 		console.log(" ".repeat(this.position) + "^");
 		console.error(this.message);
 	}
 }
 
+class Context {
+	private data: Array<string> = [];
+	private max: number = 0;
+
+	public get maxIndex(): number {
+		return this.max;
+	}
+
+	public push(identifier: string): void {
+		this.data.push(identifier);
+	}
+
+	public pop(): string | undefined {
+		return this.data.pop();
+	}
+
+	public indexOf(indentifier: string): number {
+		let index = this.data.lastIndexOf(indentifier);
+		if (index != -1) {
+			let ret = this.data.length - index;
+			this.max = ret > this.max ? ret : this.max;
+			return ret;
+		} else {
+			return 0;
+		}
+	}
+}
+
 export class Parser<T extends Token> {
 	private index: number;
-
-	protected get currentTokenIndex(): number {
-		return this.index;
-	}
+	protected context: Context;
 
 	constructor(
 		protected readonly tokens: Array<T>
 	) {
 		this.index = 0;
+		this.context = new Context();
+	}
+
+	protected get currentTokenIndex(): number {
+		return this.index;
 	}
 
 	protected get currentPosition(): number {
@@ -38,13 +70,17 @@ export class Parser<T extends Token> {
 		return this.index >= this.tokens.length;
 	}
 
-	nextIs(id: any): boolean {
+	public get maxIndex(): number {
+		return this.context.maxIndex;
+	}
+
+	public nextIs(id: any): boolean {
 		if (this.index >= this.tokens.length)
 			return false;
 		return (this.tokens[this.index].id == id);
 	}
 	
-	skipIs(id: any): boolean {
+	public skipIs(id: any): boolean {
 		if (this.index >= this.tokens.length)
 			return false;
 		if (this.tokens[this.index].id == id) {
@@ -54,7 +90,7 @@ export class Parser<T extends Token> {
 		return false;
 	}
 
-	match(id: any, error: string): string {
+	public match(id: any, error: string): string {
 		if (this.nextIs(id)) {
 			this.index += 1;
 			return this.tokens[this.index - 1].value;
