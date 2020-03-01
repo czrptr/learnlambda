@@ -1,6 +1,6 @@
 const exprs = [
 	/* untyped */
-	
+
 	// "λx.λy.((((x y) z) w))",
 	// "λx.λy.((((x y) z  w))",
 	// "λx.",
@@ -21,7 +21,7 @@ const exprs = [
 	// "λx.λy.x y w",
 
 	/* typed */
-	
+
 	// "λx:Bool -> [Bool -> (Bool -> Bool), Bool] .x y z w",
 	// "λx.x",
 	// "λx:.x",
@@ -36,9 +36,13 @@ const exprs = [
 	// "λx:([Nat -> Nat -> Nat, (Bool)]).x",
 ];
 
-import { tokenize, parse, evaluate } from "./untyped";
-import { TokenizeError } from "./tokenize";
-import { ParseError } from "./parse";
+import {
+	TokenizeError,
+	ParseError,
+	tokenize,
+	parse,
+	evaluate
+} from "./untyped";
 
 process.stdin.setEncoding("utf8");
 
@@ -49,7 +53,7 @@ function print(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean
 print("λ> ");
 process.stdin.on("data", (buffer) => {
 	const input = buffer.toString().trim();
-	if (input == "quit")
+	if (input == "q" || input == "quit")
 		process.exit();
 	try {
 		const expr = parse(tokenize(input.replace("\\", "λ")));
