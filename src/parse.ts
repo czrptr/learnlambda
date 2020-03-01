@@ -10,9 +10,8 @@ export class ParseError extends Error {
 		super(message); 
 	}
 
-	public print(): void {
-		console.log(" ".repeat(this.position) + "^");
-		console.error(this.message);
+	public toPrint(): [string, string] {
+		return [" ".repeat(this.position) + "^", this.message];
 	}
 }
 
