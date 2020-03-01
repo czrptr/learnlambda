@@ -79,7 +79,8 @@ import {
 	ParseError
 } from "./parse";
 
-class Identifier {
+//TODO remove export used for testing
+export class Identifier {
 	public readonly isSimple: boolean = true;
 
 	constructor(
@@ -100,12 +101,12 @@ class Abstraction {
 	public readonly isSimple: boolean = false;
 
 	constructor(
-		public readonly parameter: Identifier, 
+		public readonly binding: string, 
 		public readonly body: ASTNode
 	) {}
 	
 	public toString(): string {
-		return `λ${this.parameter}.${this.body}`;
+		return `λ${this.binding}.${this.body}`;
 	}
 	
 	public toDeBruijnString(): string {
@@ -176,7 +177,7 @@ class Parser extends BaseParser<Token> {
 			this.match(Id.Dot, "'.' expected");
 			const body = this.term();
 			this.context.pop();
-			return new Abstraction(new Identifier(id, this.context.indexOf(id)), body);
+			return new Abstraction(id, body);
 		} else {
 			return this.application();
 		}
@@ -217,9 +218,74 @@ class Parser extends BaseParser<Token> {
 export function parse(tokens: Array<Token>): ASTNode {
 	const parser = new Parser(tokens);
 	const ast = parser.term();
-	let index = parser.maxIndex;
-	for (let f of parser.free)
-		f.deBruijn = ++index;
 	
+	let index = parser.maxIndex;
+	let dict: Map<string, number> = new Map();
+	for (let free of parser.free) {
+		let result = dict.get(free.value);
+		dict.set(free.value, result ? result : ++index);
+	}
+
+	for (let free of parser.free)
+		free.deBruijn = dict.get(free.value)!;
+
 	return ast;
+}
+
+// FIXME
+function equals(n1: ASTNode, n2: ASTNode): boolean {
+	return n1.toDeBruijnString() == n2.toDeBruijnString();
+}
+
+export function vars(ast: ASTNode): Array<string> {
+	const helper = (ast: ASTNode) => {
+		if (ast instanceof Identifier)
+			return [ast.value];
+		else if (ast instanceof Application)
+			return [...vars(ast.left), ...vars(ast.right)];
+		else
+			return [ast.binding, ...vars(ast.body)];
+	};
+
+	const ret = helper(ast);
+	return ret.filter((v, i) => ret.indexOf(v) == i);
+}
+
+export function fresh(ast: ASTNode): string {
+	const used = vars(ast);
+	let i = 0;
+	let f = `f${i}`;
+	while (used.indexOf(f) != -1)
+		f = `f${++i}`;
+	return f;
+}
+
+function capSubst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+	if (expr instanceof Identifier)
+		return expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+	else if (expr.binding == target)
+		return expr;
+	else 
+		return new Abstraction(expr.binding, capSubst(expr.body, target, value));
+}
+
+function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+	if (expr instanceof Identifier)
+		return expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+	else if (expr.binding == target)
+		return expr;
+	else {
+		const f = fresh(expr);
+		const avoidantBody = capSubst(expr.body, expr.binding, new Identifier(f, 0));
+		return new Abstraction(f, subst(avoidantBody, target, value));
+	}
+}
+
+// TODO: make more efficient
+export function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+	return parse(tokenize(subst(expr, target, value).toString()));
 }

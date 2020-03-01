@@ -20,11 +20,11 @@ const exprs = [
 	// "g (f (λx.x))",
 	// "g f (λx.x)",
 	// "(λx.x) y",
-	// "λx.λy.x y (λx.x w)",
-	"(λx. λy. z x (λu. u x)) (λx. w x)",
-	// "λx.λy.x y w",
 	// ".",
 	// "(",
+	// "(λx. λy. z x (λu. u x)) (λx. w x)",
+	// "λx.λy.x y (λx.x w)",
+	// "λx.λy.x y w",
 
 	/* typed */
 	
@@ -42,21 +42,31 @@ const exprs = [
 	// "λx:([Nat -> Nat -> Nat, (Bool)]).x",
 ];
 
-import { tokenize, parse } from "./untyped";
+import { tokenize, parse, substitute, vars, fresh, Identifier } from "./untyped";
 // import { tokenize, parse } from "./typed";
 
-for (const expr of exprs) {
-	try {
-		const tokens = tokenize(expr);
-		const ast = parse(tokens);
-		// log(tokens + "");
-		// log(ast);
-		log(`"${expr}" -> "${ast} | ${ast.toDeBruijnString()}"`);
-	} catch (e) {
-		log(expr);
-		if (e instanceof TokenizeError || e instanceof ParseError)
-			e.print();
-		else
-			err("invalid λ-term");
-	}
-}
+// for (const expr of exprs) {
+// 	try {
+// 		const tokens = tokenize(expr);
+// 		const ast = parse(tokens);
+// 		// log(tokens + "");
+// 		// log(ast);
+// 		log(`"${expr}" -> "${ast} | ${ast.toDeBruijnString()}"`);
+// 	} catch (e) {
+// 		log(expr);
+// 		if (e instanceof TokenizeError || e instanceof ParseError)
+// 			e.print();
+// 		else
+// 			err("invalid λ-term");
+// 	}
+// }
+
+const expr = parse(tokenize("(λx. λy. z x (λu. u x)) (λx. w x)"));
+const target = "w";
+const subst = new Identifier("g", 0);
+// const subst = parse(tokenize("λx.x"));
+
+const result = substitute(expr, target, subst);
+
+log(`${expr} (${expr.toDeBruijnString()})`);
+log(`(${expr})[${target}/${subst}] = ${result} (${result.toDeBruijnString()})`);
