@@ -1,3 +1,5 @@
+//TODO fix issues solved in untyped.ts
+
 /* ====== Tokenization ====== */
 
 import "./utils/array";
