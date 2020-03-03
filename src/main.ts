@@ -16,7 +16,7 @@ const exprs = [
 	// "(λx.x) y",
 	// ".",
 	// "(",
-	// "(λx. λy. z x (λu. u x)) (λx. w x)",
+	// "(λx.λy.z x (λu. u x)) (λx.w x)",
 	// "λx.λy.x y (λx.x w)",
 	// "λx.λy.x y w",
 
@@ -39,9 +39,43 @@ const exprs = [
 import {
 	TokenizeError,
 	ParseError,
-	ExecutionContext
+	ExecutionContext,
+	tokenize,
+	parse,
+	evaluate
 } from "./untyped";
 
+const log = console.log;
+
+let ctx = new ExecutionContext();
+// ctx.aliases.set("true", ctx.evaluate("λx.λy.x"));
+// ctx.aliases.set("false", ctx.evaluate("λx.λy.y"));
+// ctx.aliases.set("and", ctx.evaluate("λp.λq.p q p"));
+// ctx.aliases.set("or", ctx.evaluate("λp.λq.p p q"));
+// ctx.aliases.set("not", ctx.evaluate("λp.p false true"));
+
+ctx.aliases.set("zero", ctx.evaluate("λf.λx.x"));
+ctx.aliases.set("succ", ctx.evaluate("λn.λf.λx.f (n f x)))"));
+ctx.aliases.set("plus", ctx.evaluate("λm.λn.m succ n"));
+ctx.aliases.set("one", ctx.evaluate("succ zero"));
+ctx.aliases.set("two", ctx.evaluate("succ one"));
+ctx.aliases.set("three", ctx.evaluate("succ two"));
+ctx.aliases.set("four", ctx.evaluate("succ three"));
+ctx.aliases.set("five", ctx.evaluate("succ four"));
+ctx.aliases.set("six", ctx.evaluate("succ five"));
+ctx.aliases.set("seven", ctx.evaluate("succ six"));
+ctx.aliases.set("eight", ctx.evaluate("succ seven"));
+ctx.aliases.set("nine", ctx.evaluate("succ eight"));
+
+ctx.aliases.forEach((value, key) => {
+	log(`${key} = ${value}`);
+	log(`${key} = ${value.toDeBruijnString()}\n`);
+});
+
+const ast = ctx.evaluate("plus five four");
+log(ast+"\n"+ast.toDeBruijnString()+"\n");
+
+/*
 process.stdin.setEncoding("utf8");
 
 function print(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean {
@@ -49,6 +83,8 @@ function print(buffer: Uint8Array | string, cb?: (err?: Error) => void): boolean
 };
 
 let exeCtx = new ExecutionContext();
+exeCtx.aliases.set("true", exeCtx.evaluate("λx.λy.x"));
+exeCtx.aliases.set("false", exeCtx.evaluate("λx.λy.y"));
 
 const alias = "([a-z][_0-9a-zA-Z]*)";
 const ws = "\\s+"
@@ -104,3 +140,4 @@ process.stdin.on("data", (buffer) => {
 		}
 	}
 });
+*/

@@ -82,8 +82,6 @@ import {
 } from "./parse";
 
 class Identifier {
-	public readonly isSimple: boolean = true;
-
 	constructor(
 		public readonly value: string,
 		public deBruijn: number
@@ -99,8 +97,6 @@ class Identifier {
 }
 
 class Abstraction {
-	public readonly isSimple: boolean = false;
-
 	constructor(
 		public readonly binding: string,
 		public readonly body: ASTNode
@@ -116,37 +112,21 @@ class Abstraction {
 }
 
 class Application {
-	public readonly isSimple: boolean;
-
 	constructor(
 		public readonly left: ASTNode,
 		public readonly right: ASTNode
-	) {
-		this.isSimple = left.isSimple && right instanceof Identifier;
-	}
+	) {}
 
 	toString(): string {
-		if (this.isSimple) {
-			return `${this.left} ${this.right}`;
-		} else if (this.left.isSimple) {
-			return `${this.left} (${this.right})`;
-		} else if (this.right.isSimple) {
-			return `(${this.left}) ${this.right}`;
-		} else {
-			return `(${this.left}) (${this.right})`;
-		}
+		const lString = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
+		const rString = this.right instanceof Identifier ? `${this.right}` : `(${this.right})`;
+		return `${lString} ${rString}`;
 	}
 
 	toDeBruijnString(): string {
-		if (this.isSimple) {
-			return `${this.left.toDeBruijnString()} ${this.right.toDeBruijnString()}`;
-		} else if (this.left.isSimple) {
-			return `${this.left.toDeBruijnString()} (${this.right.toDeBruijnString()})`;
-		} else if (this.right.isSimple) {
-			return `(${this.left.toDeBruijnString()}) ${this.right.toDeBruijnString()}`;
-		} else {
-			return `(${this.left.toDeBruijnString()}) (${this.right.toDeBruijnString()})`;
-		}
+		const lString = this.left instanceof Abstraction ? `(${this.left.toDeBruijnString()})` : `${this.left.toDeBruijnString()}`;
+		const rString = this.right instanceof Identifier ? `${this.right.toDeBruijnString()}` : `(${this.right.toDeBruijnString()})`;
+		return `${lString} ${rString}`;
 	}
 }
 
@@ -220,11 +200,13 @@ function parse(tokens: Array<Token>): ASTNode {
 	const parser = new Parser(tokens);
 	const ast = parser.term();
 
-	let index = parser.maxIndex;
+	// TODO? fix indexing when no abstractions are present
+	// (x y) => (1 2) not (2 3)
+	let index = parser.maxIndex >= 1 ? parser.maxIndex : 1;
 	let dict: Map<string, number> = new Map();
 	for (let free of parser.free) {
 		let result = dict.get(free.value);
-		dict.set(free.value, result ? result : ++index);
+		dict.set(free.value, (result != undefined) ? result : ++index);
 	}
 
 	for (let free of parser.free)
@@ -327,6 +309,8 @@ function evalOnce(expr: ASTNode): ASTNode {
 		else
 			return new Application(evalOnce(expr.left), evalOnce(expr.right));
 	}
+	if (expr instanceof Abstraction)
+		return new Abstraction(expr.binding, evalOnce(expr.body));
 	return expr;
 }
 
@@ -339,29 +323,73 @@ function evaluate(expr: ASTNode): ASTNode {
 }
 
 class ExecutionContext {
+
+	// TODO? fix circular definitions
+	// TODO cannot assing Identifiers to aliases
 	public aliases: Map<string, ASTNode>;
 
 	constructor() {
 		this.aliases = new Map();
 	}
 
-	public forwardAlias(ast: ASTNode): ASTNode {
-		let ret = ast;
-		this.aliases.forEach((value, key) => {
+	// TODO fix collisions when substituting
+	// substitute all bound with fresh then alias
+	private forAlsOnce(expr: ASTNode): ASTNode {
+		let ret = expr;
+		for (let [key, value] of this.aliases)
 			ret = substitute(ret, key, value);
-		});
 		return ret;
 	}
 
-	//TODO backwardAlias
+	private forwardAlias(expr: ASTNode): ASTNode {
+		let alias1 = this.forAlsOnce(expr);
+		let alias2 = this.forAlsOnce(alias1);
+		while (!equals(alias1, alias2))
+			[alias1, alias2] = [alias2, this.forAlsOnce(alias2)];
+		return alias2;
+	}
 
+	// no identifiers (see aliases TODO)
+	// test if implementation is good
+	private bakAlsOnce(expr: ASTNode): ASTNode {
+		for (let [key, value] of this.aliases)
+			if (equals(expr, value))
+				return new Identifier(key, 0);
+
+		for (let [key, value] of this.aliases) {
+			if (expr instanceof Application)
+				return new Application(this.bakAlsOnce(expr.left), this.bakAlsOnce(expr.right));
+			if (expr instanceof Abstraction)
+				return new Abstraction(expr.binding, this.bakAlsOnce(expr.body));
+		}
+
+		return expr;
+	}
+
+	private backwardAlias(expr: ASTNode): ASTNode {
+		let alias1 = this.bakAlsOnce(expr);
+		let alias2 = this.bakAlsOnce(alias1);
+		while (!equals(alias1, alias2))
+			[alias1, alias2] = [alias2, this.bakAlsOnce(alias2)];
+		return alias2;
+	}
+
+	// TODO: don't alias bound vars
+	// print warning?
 	public evaluate(expression: string): ASTNode {
-		return evaluate(this.forwardAlias(parse(tokenize(expression))));
+		const initExpr = parse(tokenize(expression));
+		const forAlsExpr = parse(tokenize(this.forwardAlias(initExpr).toString()));
+		const evalExpr = parse(tokenize(evaluate(forAlsExpr).toString()));
+		const backAlsExpr = parse(tokenize(this.backwardAlias(evalExpr).toString()))
+		return backAlsExpr;
 	}
 }
 
 export { TokenizeError } from './tokenize';
 export { ParseError } from './parse';
 export {
+	tokenize,
+	parse,
+	evaluate,
 	ExecutionContext
 };
