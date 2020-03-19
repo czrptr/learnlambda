@@ -13,11 +13,6 @@ class ParseError extends Error {
 
 class Context {
 	private data: Array<string> = [];
-	private max: number = 0;
-
-	public get maxIndex(): number {
-		return this.max;
-	}
 
 	public push(identifier: string): void {
 		this.data.push(identifier);
@@ -29,13 +24,7 @@ class Context {
 
 	public indexOf(indentifier: string): number {
 		let index = this.data.lastIndexOf(indentifier);
-		if (index != -1) {
-			let ret = this.data.length - index;
-			this.max = ret > this.max ? ret : this.max;
-			return ret;
-		} else {
-			return 0;
-		}
+		return (index != -1) ? this.data.length - index : 0;
 	}
 }
 
@@ -65,10 +54,6 @@ class Parser<T extends Token> {
 
 	protected get done(): boolean {
 		return this.index >= this.tokens.length;
-	}
-
-	public get maxIndex(): number {
-		return this.context.maxIndex;
 	}
 
 	public nextIs(id: any): boolean {

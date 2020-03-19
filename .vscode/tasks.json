@@ -11,10 +11,18 @@
 				"isDefault": true
 			},
 			"linux": {
-				"command": "node ${workspaceRoot}/out/main.js",
+				"command": "node index.js",
 				"options": {
-					"cwd": "${workspaceRoot}/out"
-				},
+					"cwd": "${workspaceRoot}/out/"
+				}
+			},
+			"problemMatcher": []
+		},
+		{
+            "label": "Clean output",
+			"type": "shell",
+			"linux": {
+				"command": "rm -rf ${workspaceRoot}/out/*"
 			},
 			"problemMatcher": []
 		}

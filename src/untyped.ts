@@ -57,7 +57,7 @@ function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): vo
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
 	} else {
-		throw new TokenizeError(pos, "identifier must begin with a lowercase letter");
+		throw new TokenizeError(pos, "identifier must begin with a letter");
 	}
 }
 
@@ -66,8 +66,8 @@ const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^λ/, isSimply(Id.Lambda)],
 	[/^\(/, isSimply(Id.LeftPren)],
 	[/^\)/, isSimply(Id.RightPren)],
-	[/^[a-z][_0-9a-zA-Z]*/, isIdentifier],
-	[/^[_0-9A-Z]+/, isNotIdStart]
+	[/^[a-zA-Z][_0-9a-zA-Z]*/, isIdentifier],
+	[/^[_0-9]+/, isNotIdStart]
 ];
 
 function tokenize(expression: string): Array<Token> {
@@ -92,7 +92,7 @@ class Identifier {
 	}
 
 	public toDeBruijnString(): string {
-		return `${this.deBruijn}`;
+		return (this.deBruijn != 0) ? `${this.deBruijn}` : this.value;
 	}
 }
 
@@ -146,8 +146,6 @@ atom ::= LEFTP term RIGHTP
 */
 
 class Parser extends BaseParser<Token> {
-	public free: Array<Identifier> = [];
-
 	public term(): ASTNode {
 		if (this.done) {
 			throw new ParseError(this.currentPosition, "λ-term expected");
@@ -177,19 +175,16 @@ class Parser extends BaseParser<Token> {
 
 	public atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
-			throw new ParseError(this.tokens[this.currentTokenIndex - 1].start, "'λ' expected");
-		}
-		if (this.skipIs(Id.LeftPren)) {
+			const i = this.currentTokenIndex - 1;
+			throw new ParseError(this.tokens[i < 0 ? 0 : i].start, "'λ' expected");
+		} else if (this.skipIs(Id.LeftPren)) {
 			const term = this.term();
 			this.context.pop();
 			this.match(Id.RightPren, "')' expected");
 			return term;
 		} else if (this.nextIs(Id.Identifier)) {
 			const id = this.match(Id.Identifier, "NOT POSSIBLE");
-			var identifier = new Identifier(id, this.context.indexOf(id));
-			if (identifier.deBruijn == 0)
-				this.free.push(identifier);
-			return identifier;
+			return new Identifier(id, this.context.indexOf(id));
 		} else {
 			return undefined;
 		}
@@ -197,22 +192,7 @@ class Parser extends BaseParser<Token> {
 }
 
 function parse(tokens: Array<Token>): ASTNode {
-	const parser = new Parser(tokens);
-	const ast = parser.term();
-
-	// TODO? fix indexing when no abstractions are present
-	// (x y) => (1 2) not (2 3)
-	let index = parser.maxIndex >= 1 ? parser.maxIndex : 1;
-	let dict: Map<string, number> = new Map();
-	for (let free of parser.free) {
-		let result = dict.get(free.value);
-		dict.set(free.value, (result != undefined) ? result : ++index);
-	}
-
-	for (let free of parser.free)
-		free.deBruijn = dict.get(free.value)!;
-
-	return ast;
+	return new Parser(tokens).term();
 }
 
 function equals(n1: ASTNode, n2: ASTNode): boolean {
@@ -285,7 +265,7 @@ function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 	if (expr instanceof Identifier)
 		return expr.value == target ? value : expr;
 	else if (expr instanceof Application)
-		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+		return new Application(subst(expr.left, target, value), subst(expr.right, target, value));
 	else if (expr.binding == target)
 		return expr;
 	else if (free(value).indexOf(expr.binding) == -1) {
@@ -303,15 +283,22 @@ function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
 }
 
 function evalOnce(expr: ASTNode): ASTNode {
+	let temp: ASTNode | undefined = undefined;
 	if (expr instanceof Application) {
 		if (expr.left instanceof Abstraction)
-			return substitute(expr.left.body, expr.left.binding, expr.right);
+			temp = substitute(expr.left.body, expr.left.binding, expr.right);
 		else
-			return new Application(evalOnce(expr.left), evalOnce(expr.right));
+			temp = new Application(evalOnce(expr.left), evalOnce(expr.right));
 	}
 	if (expr instanceof Abstraction)
-		return new Abstraction(expr.binding, evalOnce(expr.body));
-	return expr;
+		temp = new Abstraction(expr.binding, evalOnce(expr.body));
+
+	let ret = (temp != undefined) ? temp : expr;
+	ret = parse(tokenize(ret.toString()));
+
+	console.log(`${ret.toString()}\n${ret.toDeBruijnString()}\n->`);
+
+	return ret;
 }
 
 function evaluate(expr: ASTNode): ASTNode {
@@ -388,8 +375,10 @@ class ExecutionContext {
 export { TokenizeError } from './tokenize';
 export { ParseError } from './parse';
 export {
+	Token,
 	tokenize,
 	parse,
+	evalOnce,
 	evaluate,
 	ExecutionContext
 };
