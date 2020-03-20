@@ -1,6 +1,6 @@
 /* ====== Tokenization ====== */
 
-import "./utils/array";
+import "./utils";
 
 import {
 	Token as BaseToken,
@@ -81,6 +81,7 @@ import {
 	Parser as BaseParser,
 	ParseError
 } from "./parse";
+import { realpathSync } from "fs";
 
 class Identifier {
 	constructor(
@@ -134,7 +135,16 @@ class Application {
 type ASTNode = Identifier | Abstraction | Application;
 
 function equals(n1: ASTNode, n2: ASTNode): boolean {
-	return n1.toDeBruijnString() == n2.toDeBruijnString();
+	if (n1 instanceof Identifier && n2 instanceof Identifier) {
+		if (n1.deBruijn == 0 && n2.deBruijn == 0)
+			return n1.value == n2.value;
+		return n1.deBruijn == n2.deBruijn;
+	} else if (n1 instanceof Application && n2 instanceof Application) {
+		return equals(n1.left, n2.left) && equals(n1.right, n2.right);
+	} else if (n1 instanceof Abstraction && n2 instanceof Abstraction) {
+		return equals(n1.body, n2.body);
+	}
+	return false;
 }
 
 /* Grammar:
@@ -304,8 +314,7 @@ function evalOnce(expr: ASTNode): ASTNode {
 		temp = new Abstraction(expr.binding, evalOnce(expr.body));
 
 	let ret = (temp != undefined) ? temp : expr;
-	ret = parse(tokenize(ret.toString()));
-	return ret;
+	return parse(tokenize(ret.toString()));
 }
 
 function evaluate(expr: ASTNode): ASTNode {
@@ -316,14 +325,40 @@ function evaluate(expr: ASTNode): ASTNode {
 	return eval2;
 }
 
+// TODO? error on unknown free
 class ExecutionContext {
 
-	// TODO? fix circular definitions
-	// TODO cannot assing Identifiers to aliases
-	public aliases: Map<string, ASTNode>;
+	// TODO warn
+	private aliases: Map<string, ASTNode> = new Map();
 
-	constructor() {
-		this.aliases = new Map();
+	private isCircularDefined(ast: ASTNode, defs: Array<string> = []): boolean {
+		// const freeVars = free(ast);
+
+		// let ret = false;
+		// for (let freeVar of freeVars)
+		// 	if (this.aliases.has(freeVar))
+		// 		ret = ret && this.isCircularDefined(this.aliases.get(freeVar)!, [...defs, freeVar]);
+		// return ret;
+		return false;
+	}
+
+	public addAlias(alias: string, expr: string): void {
+		let ast = parse(tokenize(expr));
+		ast = parse(tokenize(this.forwardAlias(ast).toString()));
+		ast = parse(tokenize(evaluate(ast).toString()));
+
+		for (let [key, value] of this.aliases)
+			if(equals(ast, value))
+				throw "DUPLICATE!";
+
+		if (ast instanceof Identifier)
+			throw "IDENTIFIER!";
+		
+		this.aliases.set(alias, ast);
+	}
+
+	public removeAlias(alias: string): void {
+		this.aliases.delete(alias);
 	}
 
 	// TODO fix collisions when substituting
@@ -371,11 +406,11 @@ class ExecutionContext {
 	// TODO: don't alias bound vars
 	// print warning?
 	public evaluate(expression: string): ASTNode {
-		const initExpr = parse(tokenize(expression));
-		const forAlsExpr = parse(tokenize(this.forwardAlias(initExpr).toString()));
-		const evalExpr = parse(tokenize(evaluate(forAlsExpr).toString()));
-		const backAlsExpr = parse(tokenize(this.backwardAlias(evalExpr).toString()))
-		return backAlsExpr;
+		let ast = parse(tokenize(expression));
+		ast = parse(tokenize(this.forwardAlias(ast).toString()));
+		ast = parse(tokenize(evaluate(ast).toString()));
+		ast = parse(tokenize(this.backwardAlias(ast).toString()))
+		return ast;
 	}
 }
 
@@ -392,5 +427,6 @@ export {
 	capSubst,
 	subst,
 	evalOnce,
-	evaluate
+	evaluate,
+	ExecutionContext
 };
