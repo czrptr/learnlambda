@@ -13,7 +13,7 @@ class ParseError extends Error {
 
 class Context {
 	private data: Array<string> = [];
-	private toSwap: Map<string, string> = new Map<string, string>();
+	private toSwap: Map<string, string> = new Map();
 
 	public get ids(): Array<string> {
 		return this.data;
