@@ -10,8 +10,7 @@
 			"./node_modules/@types"
 		],
 		"moduleResolution": "node",
-		"outDir": "./out",
-		"rootDir": "./src",
+		"outDir": "./js",
 		"inlineSourceMap": true,
 		"removeComments": true,
 		"downlevelIteration": true,
@@ -21,5 +20,8 @@
 		"noImplicitReturns": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true
-	}
+	},
+	"include": [
+		"./src/index.ts"
+	]
 }
