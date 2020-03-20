@@ -1,18 +1,25 @@
 {
 	"compilerOptions": {
-	"types": [
-		"node",
-	],
-	"target": "ES6",
-	"module": "commonjs",
-	"lib": ["dom", "es2015"],
-	"checkJs": false,
-	"sourceMap": true,
-	"outDir": "./out",
-	"rootDir": "./src",
-	"downlevelIteration": true,
-	"strict": true,
-	"strictNullChecks": true,
-	"noImplicitThis": true,
+		"target": "ES2015",
+		"module": "commonjs",
+		"types": [
+			"node",
+			"jest"
+		],
+		"typeRoots": [
+			"./node_modules/@types"
+		],
+		"moduleResolution": "node",
+		"outDir": "./out",
+		"rootDir": "./src",
+		"inlineSourceMap": true,
+		"removeComments": true,
+		"downlevelIteration": true,
+		"strict": true,
+		// "noUnusedLocals": true,
+		// "noUnusedParameters": true,
+		"noImplicitReturns": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true
 	}
 }

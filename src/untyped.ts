@@ -1,6 +1,6 @@
 /* ====== Tokenization ====== */
 
-import "./utils/array";
+import "./utils";
 
 import {
 	Token as BaseToken,
@@ -57,17 +57,18 @@ function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): vo
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
 	} else {
-		throw new TokenizeError(pos, "identifier must begin with a lowercase letter");
+		throw new TokenizeError(pos, "identifier must begin with a letter");
 	}
 }
 
+// TODO? add ' to identifiers
 const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^\./, isSimply(Id.Dot)],
 	[/^λ/, isSimply(Id.Lambda)],
 	[/^\(/, isSimply(Id.LeftPren)],
 	[/^\)/, isSimply(Id.RightPren)],
-	[/^[a-z][_0-9a-zA-Z]*/, isIdentifier],
-	[/^[_0-9A-Z]+/, isNotIdStart]
+	[/^[a-zA-Z][_0-9a-zA-Z]*/, isIdentifier],
+	[/^[_0-9]+/, isNotIdStart]
 ];
 
 function tokenize(expression: string): Array<Token> {
@@ -80,6 +81,7 @@ import {
 	Parser as BaseParser,
 	ParseError
 } from "./parse";
+import { realpathSync } from "fs";
 
 class Identifier {
 	constructor(
@@ -92,7 +94,7 @@ class Identifier {
 	}
 
 	public toDeBruijnString(): string {
-		return `${this.deBruijn}`;
+		return (this.deBruijn != 0) ? `${this.deBruijn}` : this.value;
 	}
 }
 
@@ -117,13 +119,13 @@ class Application {
 		public readonly right: ASTNode
 	) {}
 
-	toString(): string {
+	public toString(): string {
 		const lString = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
 		const rString = this.right instanceof Identifier ? `${this.right}` : `(${this.right})`;
 		return `${lString} ${rString}`;
 	}
 
-	toDeBruijnString(): string {
+	public toDeBruijnString(): string {
 		const lString = this.left instanceof Abstraction ? `(${this.left.toDeBruijnString()})` : `${this.left.toDeBruijnString()}`;
 		const rString = this.right instanceof Identifier ? `${this.right.toDeBruijnString()}` : `(${this.right.toDeBruijnString()})`;
 		return `${lString} ${rString}`;
@@ -131,6 +133,19 @@ class Application {
 }
 
 type ASTNode = Identifier | Abstraction | Application;
+
+function equals(n1: ASTNode, n2: ASTNode): boolean {
+	if (n1 instanceof Identifier && n2 instanceof Identifier) {
+		if (n1.deBruijn == 0 && n2.deBruijn == 0)
+			return n1.value == n2.value;
+		return n1.deBruijn == n2.deBruijn;
+	} else if (n1 instanceof Application && n2 instanceof Application) {
+		return equals(n1.left, n2.left) && equals(n1.right, n2.right);
+	} else if (n1 instanceof Abstraction && n2 instanceof Abstraction) {
+		return equals(n1.body, n2.body);
+	}
+	return false;
+}
 
 /* Grammar:
 
@@ -145,20 +160,29 @@ atom ::= LEFTP term RIGHTP
 
 */
 
+// FIXME y (λx.x)
 class Parser extends BaseParser<Token> {
-	public free: Array<Identifier> = [];
-
 	public term(): ASTNode {
 		if (this.done) {
 			throw new ParseError(this.currentPosition, "λ-term expected");
 		}
 		if (this.skipIs(Id.Lambda)) {
 			const id = this.match(Id.Identifier, "λ-abstraction binding expected");
-			this.context.push(id);
 			this.match(Id.Dot, "'.' expected");
-			const body = this.term();
-			this.context.pop();
-			return new Abstraction(id, body);
+			if (this.context.indexOf(id) == 0) {
+				this.context.push(id);
+				const body = this.term();
+				this.context.pop();
+				return new Abstraction(id, body);
+			} else { // double binding, need fresh
+				const newId = fresh(this.context.ids);
+				this.context.push(newId);
+				this.context.addSwap(id, newId);
+				const body = this.term();
+				this.context.pop();
+				this.context.removeSwap(id);
+				return new Abstraction(newId, body);
+			}
 		} else {
 			return this.application();
 		}
@@ -177,19 +201,16 @@ class Parser extends BaseParser<Token> {
 
 	public atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
-			throw new ParseError(this.tokens[this.currentTokenIndex - 1].start, "'λ' expected");
-		}
-		if (this.skipIs(Id.LeftPren)) {
+			const i = this.currentTokenIndex - 1;
+			throw new ParseError(this.tokens[i < 0 ? 0 : i].start, "'λ' expected");
+		} else if (this.skipIs(Id.LeftPren)) {
 			const term = this.term();
-			this.context.pop();
 			this.match(Id.RightPren, "')' expected");
 			return term;
 		} else if (this.nextIs(Id.Identifier)) {
-			const id = this.match(Id.Identifier, "NOT POSSIBLE");
-			var identifier = new Identifier(id, this.context.indexOf(id));
-			if (identifier.deBruijn == 0)
-				this.free.push(identifier);
-			return identifier;
+			let id = this.match(Id.Identifier, "NOT POSSIBLE");
+			id = this.context.getSwap(id); // in case of double binding
+			return new Identifier(id, this.context.indexOf(id));
 		} else {
 			return undefined;
 		}
@@ -197,26 +218,7 @@ class Parser extends BaseParser<Token> {
 }
 
 function parse(tokens: Array<Token>): ASTNode {
-	const parser = new Parser(tokens);
-	const ast = parser.term();
-
-	// TODO? fix indexing when no abstractions are present
-	// (x y) => (1 2) not (2 3)
-	let index = parser.maxIndex >= 1 ? parser.maxIndex : 1;
-	let dict: Map<string, number> = new Map();
-	for (let free of parser.free) {
-		let result = dict.get(free.value);
-		dict.set(free.value, (result != undefined) ? result : ++index);
-	}
-
-	for (let free of parser.free)
-		free.deBruijn = dict.get(free.value)!;
-
-	return ast;
-}
-
-function equals(n1: ASTNode, n2: ASTNode): boolean {
-	return n1.toDeBruijnString() == n2.toDeBruijnString();
+	return new Parser(tokens).term();
 }
 
 function bound(ast: ASTNode): Array<string>  {
@@ -261,8 +263,7 @@ function vars(ast: ASTNode): Array<string> {
 	return ret.filter((v, i) => ret.indexOf(v) == i);
 }
 
-function fresh(ast: ASTNode): string {
-	const used = vars(ast);
+function fresh(used: Array<string>): string {
 	let i = 0;
 	let f = `f${i}`;
 	while (used.indexOf(f) != -1)
@@ -271,47 +272,49 @@ function fresh(ast: ASTNode): string {
 }
 
 function capSubst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+	let ret: ASTNode;
 	if (expr instanceof Identifier)
-		return expr.value == target ? value : expr;
+		ret = expr.value == target ? value : expr;
 	else if (expr instanceof Application)
-		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+		ret = new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
 	else if (expr.binding == target)
-		return expr;
+		ret = expr;
 	else
-		return new Abstraction(expr.binding, capSubst(expr.body, target, value));
+		ret = new Abstraction(expr.binding, capSubst(expr.body, target, value));
+	return parse(tokenize(ret.toString()));
 }
 
 function subst(expr: ASTNode, target: string, value: ASTNode): ASTNode {
+	let ret: ASTNode;
 	if (expr instanceof Identifier)
-		return expr.value == target ? value : expr;
+		ret = expr.value == target ? value : expr;
 	else if (expr instanceof Application)
-		return new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+		ret =  new Application(subst(expr.left, target, value), subst(expr.right, target, value));
 	else if (expr.binding == target)
-		return expr;
+		ret = expr;
 	else if (free(value).indexOf(expr.binding) == -1) {
-		return new Abstraction(expr.binding, subst(expr.body, target, value));
+		ret = new Abstraction(expr.binding, subst(expr.body, target, value));
 	} else {
-		const f = fresh(expr);
+		const f = fresh(vars(expr));
 		const avoidantBody = capSubst(expr.body, expr.binding, new Identifier(f, 0));
-		return new Abstraction(f, subst(avoidantBody, target, value));
+		ret = new Abstraction(f, subst(avoidantBody, target, value));
 	}
-}
-
-// TODO: make more efficient
-function substitute(expr: ASTNode, target: string, value: ASTNode): ASTNode {
-	return parse(tokenize(subst(expr, target, value).toString()));
+	return parse(tokenize(ret.toString()));
 }
 
 function evalOnce(expr: ASTNode): ASTNode {
+	let temp: ASTNode | undefined = undefined;
 	if (expr instanceof Application) {
 		if (expr.left instanceof Abstraction)
-			return substitute(expr.left.body, expr.left.binding, expr.right);
+			temp = subst(expr.left.body, expr.left.binding, expr.right);
 		else
-			return new Application(evalOnce(expr.left), evalOnce(expr.right));
+			temp = new Application(evalOnce(expr.left), evalOnce(expr.right));
 	}
 	if (expr instanceof Abstraction)
-		return new Abstraction(expr.binding, evalOnce(expr.body));
-	return expr;
+		temp = new Abstraction(expr.binding, evalOnce(expr.body));
+
+	let ret = (temp != undefined) ? temp : expr;
+	return parse(tokenize(ret.toString()));
 }
 
 function evaluate(expr: ASTNode): ASTNode {
@@ -322,22 +325,48 @@ function evaluate(expr: ASTNode): ASTNode {
 	return eval2;
 }
 
+// TODO? error on unknown free
 class ExecutionContext {
 
-	// TODO? fix circular definitions
-	// TODO cannot assing Identifiers to aliases
-	public aliases: Map<string, ASTNode>;
+	// TODO warn
+	private aliases: Map<string, ASTNode> = new Map();
 
-	constructor() {
-		this.aliases = new Map();
+	private isCircularDefined(ast: ASTNode, defs: Array<string> = []): boolean {
+		// const freeVars = free(ast);
+
+		// let ret = false;
+		// for (let freeVar of freeVars)
+		// 	if (this.aliases.has(freeVar))
+		// 		ret = ret && this.isCircularDefined(this.aliases.get(freeVar)!, [...defs, freeVar]);
+		// return ret;
+		return false;
+	}
+
+	public addAlias(alias: string, expr: string): void {
+		let ast = parse(tokenize(expr));
+		ast = parse(tokenize(this.forwardAlias(ast).toString()));
+		ast = parse(tokenize(evaluate(ast).toString()));
+
+		for (let [key, value] of this.aliases)
+			if(equals(ast, value))
+				throw "DUPLICATE!";
+
+		if (ast instanceof Identifier)
+			throw "IDENTIFIER!";
+		
+		this.aliases.set(alias, ast);
+	}
+
+	public removeAlias(alias: string): void {
+		this.aliases.delete(alias);
 	}
 
 	// TODO fix collisions when substituting
-	// substitute all bound with fresh then alias
+	// subst all bound with fresh then alias
 	private forAlsOnce(expr: ASTNode): ASTNode {
 		let ret = expr;
 		for (let [key, value] of this.aliases)
-			ret = substitute(ret, key, value);
+			ret = subst(ret, key, value);
 		return ret;
 	}
 
@@ -377,19 +406,27 @@ class ExecutionContext {
 	// TODO: don't alias bound vars
 	// print warning?
 	public evaluate(expression: string): ASTNode {
-		const initExpr = parse(tokenize(expression));
-		const forAlsExpr = parse(tokenize(this.forwardAlias(initExpr).toString()));
-		const evalExpr = parse(tokenize(evaluate(forAlsExpr).toString()));
-		const backAlsExpr = parse(tokenize(this.backwardAlias(evalExpr).toString()))
-		return backAlsExpr;
+		let ast = parse(tokenize(expression));
+		ast = parse(tokenize(this.forwardAlias(ast).toString()));
+		ast = parse(tokenize(evaluate(ast).toString()));
+		ast = parse(tokenize(this.backwardAlias(ast).toString()))
+		return ast;
 	}
 }
 
 export { TokenizeError } from './tokenize';
 export { ParseError } from './parse';
 export {
+	Token,
 	tokenize,
 	parse,
+	equals,
+	free,
+	bound,
+	vars,
+	capSubst,
+	subst,
+	evalOnce,
 	evaluate,
 	ExecutionContext
 };

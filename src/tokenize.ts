@@ -1,4 +1,4 @@
-class TokenizeError extends Error {
+class TokenizeError extends Error implements Error {
 	constructor(
 		public readonly position: number,
 		message?: string

@@ -13,29 +13,35 @@ class ParseError extends Error {
 
 class Context {
 	private data: Array<string> = [];
-	private max: number = 0;
+	private toSwap: Map<string, string> = new Map();
 
-	public get maxIndex(): number {
-		return this.max;
+	public get ids(): Array<string> {
+		return this.data;
 	}
+
+	public addSwap(id1: string, id2: string): void {
+		this.toSwap.set(id1, id2);
+	}
+
+	public removeSwap(id: string): void {
+		this.toSwap.delete(id);
+	}
+
+	public getSwap(id: string): string {
+		return this.toSwap.has(id) ? this.toSwap.get(id)! : id;
+	} 
 
 	public push(identifier: string): void {
 		this.data.push(identifier);
 	}
 
-	public pop(): string | undefined {
-		return this.data.pop();
+	public pop(): void {
+		let _ = this.data.pop();
 	}
 
 	public indexOf(indentifier: string): number {
 		let index = this.data.lastIndexOf(indentifier);
-		if (index != -1) {
-			let ret = this.data.length - index;
-			this.max = ret > this.max ? ret : this.max;
-			return ret;
-		} else {
-			return 0;
-		}
+		return (index != -1) ? this.data.length - index : 0;
 	}
 }
 
@@ -65,10 +71,6 @@ class Parser<T extends Token> {
 
 	protected get done(): boolean {
 		return this.index >= this.tokens.length;
-	}
-
-	public get maxIndex(): number {
-		return this.context.maxIndex;
 	}
 
 	public nextIs(id: any): boolean {
