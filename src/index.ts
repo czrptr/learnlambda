@@ -52,7 +52,7 @@ function strip(str: string): string {
 }
 
 editor.on("beforeChange", (sender, change) => {
-	console.log(change.text);
+	// console.log(change.text);
 
 	// backspace was pressed
 	// if (change.text.length == 1 && change.text[0] == "") {
