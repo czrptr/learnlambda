@@ -2,10 +2,26 @@
 @import "./vars.css";
 @import "./codemirror.css";
 
+::-webkit-scrollbar {
+    width: 0.5em !important;
+    scroll-behavior: smooth !important;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: darkgrey !important;
+    outline: 1px solid slategrey !important;
+    border-radius: 10px !important;
+}
+
 html {
 	color: white;
 	font-size: 1.125em;
 	font-family: monospace;
+	scrollbar-color: darkgrey transparent !important;
 }
 
 body {
@@ -13,13 +29,13 @@ body {
 	min-height: 100vh;
 	display: grid;
 	grid-template-areas: 
-		"pad pad pad"
-		"pad edi pad"
-		"pad hst pad"
-		"pad abt pad"
-		"pad pad pad";
-	grid-template-columns: 1fr 2fr 1fr;
-	grid-template-rows: 1fr auto 3fr auto 1fr;
+		"pad pad pad pad"
+		"pad edi ctx pad"
+		"pad hst ctx pad"
+		"pad abt ctx pad"
+		"pad pad pad pad";
+	grid-template-columns: 1fr auto 1fr 1fr;
+	grid-template-rows: 1fr repeat(3, auto) 1fr;
 }
 
 a {
@@ -62,21 +78,57 @@ footer a {
 	color: white;
 }
 
+#editor, #history {
+	--radius: 20px;
+	border: var(--radius) solid var(--term-background-color);
+	border-radius: var(--radius);
+}
+
+#editor, #history {
+	width: calc(100vw / 3);
+}
+
 #editor {
 	grid-column: 2/3;
 	grid-row: 2/3;
-	max-width: calc(100vw / 2);
+	border-bottom: 0;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+	border-top-right-radius: 0;
 }
 
 #history {
-	background-color: gray;
 	grid-column: 2/3;
 	grid-row: 3/4;
-	max-width: calc(100vw / 2);
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
 }
 
 #history .CodeMirror-cursor {
-	border-left: 0px;
+	border: 0px;
+}
+
+#context {
+	border: 0.5em solid var(--term-background-color);
+	border-radius: 20px;
+	border-left: 0;
+	background-color: var(--page-background-color);
+	grid-column: 3/4;
+	grid-row: 2/4;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	padding-left: 1em;
+}
+
+#context h1 {
+	font-size: 1.5em;
+	text-align: center;
+	margin-top: 1em;
+}
+
+#context-content .CodeMirror {
+	background-color: var(--page-background-color);
 }
 
 #features {

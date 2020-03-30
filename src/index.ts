@@ -44,7 +44,18 @@ var history = CodeMirror(document.getElementById("history")!, {
 	readOnly: true,
 	mode: "untyped",
 });
-history.setSize(null, "100%");
+history.setSize(null, "50vh");
+
+var context = CodeMirror(document.getElementById("context-content")!, {
+	lineWrapping: true,
+	readOnly: true,
+	mode: "untyped",
+});
+context.setSize(null, document.getElementById("history")!.clientHeight);
+
+for (let [alias, expr] of ctx.aliases)
+	context.setValue(context.getValue() + `${alias} → ${expr}\n\n`);
+context.setValue(context.getValue().trimRight());
 
 function strip(str: string): string {
 	const accept = /[^λ.()_0-9a-zA-Z ]/g;
@@ -54,11 +65,7 @@ function strip(str: string): string {
 editor.on("beforeChange", (sender, change) => {
 	// console.log(change.text);
 
-	// backspace was pressed
-	// if (change.text.length == 1 && change.text[0] == "") {
-	// 	if (change.to.ch == 2)
-	// 		change.cancel();
-	// }
+	//TODO: trim whitespace at the end in history
 
 	// enter was pressed
 	if (change.text.length == 2 && change.text[0] == "" && change.text[1] == "") {
@@ -66,13 +73,15 @@ editor.on("beforeChange", (sender, change) => {
 		const expr = editor.getValue().trim();
 		try {
 			const result = ctx.evaluate(expr);
-			history.setValue(history.getValue() + "λ> " + result + "\n\n");
+
+			const hist = history.getValue().length != 0 ? history.getValue() + "\n\n" : "";
+			history.setValue(hist + "λ> " + result);
 			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
 		} catch (e) {
 			if (e instanceof TokenizeError || e instanceof ParseError) {
 				const info = e.toPrint();
 				history.setValue(history.getValue() + "ε> " + expr + "\n   " + info[0] + "\n");
-				history.setValue(history.getValue() + info[1] + "\n\n")
+				history.setValue(history.getValue() + info[1])
 			}
 		}
 		editor.setValue("");

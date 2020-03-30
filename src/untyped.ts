@@ -329,15 +329,24 @@ function evaluate(expr: ASTNode): ASTNode {
 class ExecutionContext {
 
 	// TODO warn
-	private aliases: Map<string, ASTNode> = new Map();
+	private _aliases: Map<string, ASTNode> = new Map();
+
+	private unaliases: Map<string, string> = new Map();
+
+	public get aliases(): Array<[string, string]> {
+		let res: Array<[string, string]> = [];
+		for (const [alias, expr] of this.unaliases)
+			res.push([alias, expr]);
+		return res;
+	}
 
 	private isCircularDefined(ast: ASTNode, defs: Array<string> = []): boolean {
 		// const freeVars = free(ast);
 
 		// let ret = false;
 		// for (let freeVar of freeVars)
-		// 	if (this.aliases.has(freeVar))
-		// 		ret = ret && this.isCircularDefined(this.aliases.get(freeVar)!, [...defs, freeVar]);
+		// 	if (this._aliases.has(freeVar))
+		// 		ret = ret && this.isCircularDefined(this._aliases.get(freeVar)!, [...defs, freeVar]);
 		// return ret;
 		return false;
 	}
@@ -347,25 +356,27 @@ class ExecutionContext {
 		ast = parse(tokenize(this.forwardAlias(ast).toString()));
 		ast = parse(tokenize(evaluate(ast).toString()));
 
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			if(equals(ast, value))
 				throw "DUPLICATE!";
 
 		if (ast instanceof Identifier)
 			throw "IDENTIFIER!";
 		
-		this.aliases.set(alias, ast);
+		this._aliases.set(alias, ast);
+		//TODO: keep identifiers but remove superfluous paranthesis
+		this.unaliases.set(alias, expr);
 	}
 
 	public removeAlias(alias: string): void {
-		this.aliases.delete(alias);
+		this._aliases.delete(alias);
 	}
 
 	// TODO fix collisions when substituting
 	// subst all bound with fresh then alias
 	private forAlsOnce(expr: ASTNode): ASTNode {
 		let ret = expr;
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			ret = subst(ret, key, value);
 		return ret;
 	}
@@ -378,14 +389,14 @@ class ExecutionContext {
 		return alias2;
 	}
 
-	// no identifiers (see aliases TODO)
+	// no identifiers (see _aliases TODO)
 	// test if implementation is good
 	private bakAlsOnce(expr: ASTNode): ASTNode {
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			if (equals(expr, value))
 				return new Identifier(key, 0);
 
-		for (let [key, value] of this.aliases) {
+		for (let [key, value] of this._aliases) {
 			if (expr instanceof Application)
 				return new Application(this.bakAlsOnce(expr.left), this.bakAlsOnce(expr.right));
 			if (expr instanceof Abstraction)

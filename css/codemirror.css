@@ -10,7 +10,7 @@
 	border-left: 1px solid var(--term-cursor-color);
 }
 
-div.CodeMirror-selected {
+.CodeMirror-selected {
 	background: var(--term-selected-color) !important;
 }
 
