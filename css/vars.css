@@ -1,0 +1,12 @@
+:root {
+	--page-background-color: #181818;
+
+	--term-background-color: #1e1e1e;
+	--term-text-color: #ffffff;
+	--term-cursor-color: #c0c0c0;
+	--term-selected-color: #505050;
+
+	--error-color: #ff5555;
+	--identifier-color: #8cdcfe;
+	--lambda-color: #569cd6;
+}

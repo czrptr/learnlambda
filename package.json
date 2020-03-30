@@ -1,11 +1,12 @@
 {
 	"name": "learnlambda",
-	"version": "0.5.0",
+	"version": "0.3.0",
 	"description": "A online learning platform for functional programing",
 	"main": "index.js",
 	"scripts": {
 		"test": "jest",
-		"coverage": "jest --coverage"
+		"coverage": "jest --coverage",
+		"build": "webpack --watch --verbose"
 	},
 	"repository": {
 		"type": "git",
@@ -15,21 +16,17 @@
 	"author": "Cezar Petriuc",
 	"homepage": "https://github.com/czrptr/learnlambda#readme",
 	"devDependencies": {
+		"@types/codemirror": "0.0.88",
 		"@types/jest": "^25.1.4",
 		"@types/node": "^13.9.1",
 		"jest": "^25.1.0",
-		"ts-jest": "^25.2.1",
-		"typescript": "^3.8.3"
+		"ts-jest": "^25.3.0",
+		"ts-loader": "^6.2.2",
+		"typescript": "^3.8.3",
+		"webpack": "^4.42.1",
+		"webpack-cli": "^3.3.11"
 	},
-	"jest": {
-		"preset": "ts-jest",
-		"testEnvironment": "node",
-		"moduleDirectories": [
-			"node_modules",
-			"<rootDir>/src"
-		],
-		"testMatch": [
-			"<rootDir>/src/tests/**/*.test.ts"
-		]
+	"dependencies": {
+		"codemirror": "5.52.2"
 	}
 }
