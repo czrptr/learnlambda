@@ -1,7 +1,16 @@
-interface Array<T> {
-	last(): T | undefined;
+export class ParseError extends Error {
+	constructor(
+		public readonly position: number,
+		message?: string
+	) {
+		super(message);
+	}
+
+	get positionString(): string {
+		return " ".repeat(this.position) + "^";
+	}
 }
 
-Array.prototype.last = function <T>(this: Array<T>): T | undefined {
-	return this.length > 0 ? this[this.length - 1] : undefined;
+export function last<T>(array: Array<T>): T | undefined {
+	return array.length > 0 ? array[array.length - 1] : undefined;
 }

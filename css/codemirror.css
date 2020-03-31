@@ -30,12 +30,12 @@
 	color: var(--identifier-color);
 }
 
-.cm-parenerr {
+/* .cm-parenerr {
 	color: var(--error-color);
 	text-decoration-line: line-through;
 	text-decoration-color: var(--error-color);
 	text-decoration-style: solid;
-}
+} */
 
 .cm-paren0 {
 	color: #00c78f;

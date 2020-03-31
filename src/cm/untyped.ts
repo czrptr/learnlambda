@@ -29,7 +29,7 @@ CodeMirror.defineMode("untyped", () => {
 			case ")": {
 				stream.next();
 				if (state.parens.length == 1)
-					return "parenerr";
+					return null;
 				
 				const id = state.parens.pop()!;
 				return `paren${id}`;

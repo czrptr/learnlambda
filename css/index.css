@@ -17,11 +17,14 @@
     border-radius: 10px !important;
 }
 
+* {
+	scrollbar-color: darkgrey transparent !important;
+}
+
 html {
 	color: white;
 	font-size: 1.125em;
 	font-family: monospace;
-	scrollbar-color: darkgrey transparent !important;
 }
 
 body {
@@ -78,23 +81,33 @@ footer a {
 	color: white;
 }
 
-#editor, #history {
+#editor-container, #history {
 	--radius: 20px;
 	border: var(--radius) solid var(--term-background-color);
 	border-radius: var(--radius);
 }
 
-#editor, #history {
+#editor-container, #history {
 	width: calc(100vw / 3);
 }
 
-#editor {
+#editor-container {
 	grid-column: 2/3;
 	grid-row: 2/3;
 	border-bottom: 0;
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;
 	border-top-right-radius: 0;
+}
+
+#prompt {
+	font-size: 1.125em;
+	padding-top: 0.3em;
+	padding-bottom: 0.3em;
+	padding-left: 0.3em;
+	float: left;
+	background-color: var(--term-background-color);
+	text-align: end;
 }
 
 #history {

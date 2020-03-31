@@ -1,12 +1,14 @@
-/* ====== Tokenization ====== */
+import {
+	last,
+	ParseError
+} from "./utils";
 
-import "./utils";
+/* ====== Tokenization ====== */
 
 import {
 	Token as BaseToken,
 	TokenizeFunction as BaseTokenizeFunction,
 	tokenize as baseTokenize,
-	TokenizeError
 } from "./tokenize";
 
 enum Id {
@@ -26,7 +28,7 @@ class Token implements BaseToken {
 		public readonly value: string
 	) {}
 
-	public toString(): string {
+	toString(): string {
 		if (this.id == Id.Identifier)
 			return `Token{${Id[this.id]}, ${this.start}, "${this.value}"}`;
 		else
@@ -44,7 +46,7 @@ function isSimply(id: Id): TokenizeFunction {
 }
 
 function isIdentifier(tokens: Array<Token>, expression: string, pos: number): void {
-	if (tokens.last() && tokens.last()!.id == Id.Identifier) {
+	if (last(tokens) && last(tokens)!.id == Id.Identifier) {
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
 	} else {
@@ -53,11 +55,11 @@ function isIdentifier(tokens: Array<Token>, expression: string, pos: number): vo
 }
 
 function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): void {
-	if (tokens.last() && tokens.last()!.id == Id.Identifier) {
+	if (last(tokens) && last(tokens)!.id == Id.Identifier) {
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
 	} else {
-		throw new TokenizeError(pos, "identifier must begin with a letter");
+		throw new ParseError(pos, "identifier must begin with a letter");
 	}
 }
 
@@ -67,8 +69,8 @@ const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^λ/, isSimply(Id.Lambda)],
 	[/^\(/, isSimply(Id.LeftPren)],
 	[/^\)/, isSimply(Id.RightPren)],
-	[/^[a-zA-Z][_0-9a-zA-Z]*/, isIdentifier],
-	[/^[_0-9]+/, isNotIdStart]
+	[/^[a-zA-Z][_0-9a-zA-Z']*/, isIdentifier],
+	[/^[_0-9']+/, isNotIdStart]
 ];
 
 function tokenize(expression: string): Array<Token> {
@@ -79,9 +81,7 @@ function tokenize(expression: string): Array<Token> {
 
 import {
 	Parser as BaseParser,
-	ParseError
 } from "./parse";
-import { realpathSync } from "fs";
 
 class Identifier {
 	constructor(
@@ -89,11 +89,11 @@ class Identifier {
 		public deBruijn: number
 	) {}
 
-	public toString(): string {
+	toString(): string {
 		return this.value;
 	}
 
-	public toDeBruijnString(): string {
+	toDeBruijnString(): string {
 		return (this.deBruijn != 0) ? `${this.deBruijn}` : this.value;
 	}
 }
@@ -104,11 +104,11 @@ class Abstraction {
 		public readonly body: ASTNode
 	) {}
 
-	public toString(): string {
+	toString(): string {
 		return `λ${this.binding}.${this.body}`;
 	}
 
-	public toDeBruijnString(): string {
+	toDeBruijnString(): string {
 		return `λ ${this.body.toDeBruijnString()}`;
 	}
 }
@@ -119,13 +119,13 @@ class Application {
 		public readonly right: ASTNode
 	) {}
 
-	public toString(): string {
+	toString(): string {
 		const lString = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
 		const rString = this.right instanceof Identifier ? `${this.right}` : `(${this.right})`;
 		return `${lString} ${rString}`;
 	}
 
-	public toDeBruijnString(): string {
+	toDeBruijnString(): string {
 		const lString = this.left instanceof Abstraction ? `(${this.left.toDeBruijnString()})` : `${this.left.toDeBruijnString()}`;
 		const rString = this.right instanceof Identifier ? `${this.right.toDeBruijnString()}` : `(${this.right.toDeBruijnString()})`;
 		return `${lString} ${rString}`;
@@ -162,10 +162,12 @@ atom ::= LEFTP term RIGHTP
 
 // FIXME y (λx.x)
 class Parser extends BaseParser<Token> {
-	public term(): ASTNode {
-		if (this.done) {
+	private paren: number = 0;
+
+	term(): ASTNode {
+		if (this.done)
 			throw new ParseError(this.currentPosition, "λ-term expected");
-		}
+
 		if (this.skipIs(Id.Lambda)) {
 			const id = this.match(Id.Identifier, "λ-abstraction binding expected");
 			this.match(Id.Dot, "'.' expected");
@@ -188,8 +190,12 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	public application(): ASTNode {
-		let lhs = this.atom()!;
+	application(): ASTNode {
+		let lhs = this.atom();
+
+		if (!lhs)
+			throw new ParseError(this.currentPosition, "λ-term expected");
+
 		while (true) {
 			const rhs = this.atom();
 			if (!rhs)
@@ -199,18 +205,22 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	public atom(): ASTNode | undefined {
+	atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
 			const i = this.currentTokenIndex - 1;
 			throw new ParseError(this.tokens[i < 0 ? 0 : i].start, "'λ' expected");
 		} else if (this.skipIs(Id.LeftPren)) {
+			this.paren += 1;
 			const term = this.term();
 			this.match(Id.RightPren, "')' expected");
+			this.paren -= 1;
 			return term;
 		} else if (this.nextIs(Id.Identifier)) {
 			let id = this.match(Id.Identifier, "NOT POSSIBLE");
 			id = this.context.getSwap(id); // in case of double binding
 			return new Identifier(id, this.context.indexOf(id));
+		} else if (this.nextIs(Id.RightPren) && this.paren == 0) {
+			throw new ParseError(this.currentPosition, "unmatched ')'");
 		} else {
 			return undefined;
 		}
@@ -317,6 +327,8 @@ function evalOnce(expr: ASTNode): ASTNode {
 	return parse(tokenize(ret.toString()));
 }
 
+// (λx.x x) (λx.x x) protection by accident
+// FIX ME?
 function evaluate(expr: ASTNode): ASTNode {
 	let eval1 = evalOnce(expr);
 	let eval2 = evalOnce(eval1);
@@ -329,11 +341,11 @@ function evaluate(expr: ASTNode): ASTNode {
 class ExecutionContext {
 
 	// TODO warn
-	private _aliases: Map<string, ASTNode> = new Map();
+	private aliases: Map<string, ASTNode> = new Map();
 
 	private unaliases: Map<string, string> = new Map();
 
-	public get aliases(): Array<[string, string]> {
+	get aliasesAsStrings(): Array<[string, string]> {
 		let res: Array<[string, string]> = [];
 		for (const [alias, expr] of this.unaliases)
 			res.push([alias, expr]);
@@ -345,43 +357,41 @@ class ExecutionContext {
 
 		// let ret = false;
 		// for (let freeVar of freeVars)
-		// 	if (this._aliases.has(freeVar))
-		// 		ret = ret && this.isCircularDefined(this._aliases.get(freeVar)!, [...defs, freeVar]);
+		// 	if (this.aliases.has(freeVar))
+		// 		ret = ret && this.isCircularDefined(this.aliases.get(freeVar)!, [...defs, freeVar]);
 		// return ret;
 		return false;
 	}
 
-	public addAlias(alias: string, expr: string): void {
+	addAlias(alias: string, expr: string): void {
 		let ast = parse(tokenize(expr));
+		expr = ast.toString();
 		ast = parse(tokenize(this.forwardAlias(ast).toString()));
 		ast = parse(tokenize(evaluate(ast).toString()));
 
-		for (let [key, value] of this._aliases)
+		for (let [key, value] of this.aliases)
 			if(equals(ast, value))
 				throw "DUPLICATE!";
 
 		if (ast instanceof Identifier)
 			throw "IDENTIFIER!";
 		
-		this._aliases.set(alias, ast);
-		//TODO: keep identifiers but remove superfluous paranthesis
+		this.aliases.set(alias, ast);
 		this.unaliases.set(alias, expr);
 	}
 
-	public removeAlias(alias: string): void {
-		this._aliases.delete(alias);
+	removeAlias(alias: string): void {
+		this.aliases.delete(alias);
 	}
 
-	// TODO fix collisions when substituting
-	// subst all bound with fresh then alias
-	private forAlsOnce(expr: ASTNode): ASTNode {
+	forAlsOnce(expr: ASTNode): ASTNode {
 		let ret = expr;
-		for (let [key, value] of this._aliases)
+		for (let [key, value] of this.aliases)
 			ret = subst(ret, key, value);
 		return ret;
 	}
 
-	private forwardAlias(expr: ASTNode): ASTNode {
+	forwardAlias(expr: ASTNode): ASTNode {
 		let alias1 = this.forAlsOnce(expr);
 		let alias2 = this.forAlsOnce(alias1);
 		while (!equals(alias1, alias2))
@@ -389,14 +399,13 @@ class ExecutionContext {
 		return alias2;
 	}
 
-	// no identifiers (see _aliases TODO)
-	// test if implementation is good
+	// no identifiers (see aliases TODO)
 	private bakAlsOnce(expr: ASTNode): ASTNode {
-		for (let [key, value] of this._aliases)
+		for (let [key, value] of this.aliases)
 			if (equals(expr, value))
 				return new Identifier(key, 0);
 
-		for (let [key, value] of this._aliases) {
+		for (let [key, value] of this.aliases) {
 			if (expr instanceof Application)
 				return new Application(this.bakAlsOnce(expr.left), this.bakAlsOnce(expr.right));
 			if (expr instanceof Abstraction)
@@ -406,7 +415,7 @@ class ExecutionContext {
 		return expr;
 	}
 
-	private backwardAlias(expr: ASTNode): ASTNode {
+	backwardAlias(expr: ASTNode): ASTNode {
 		let alias1 = this.bakAlsOnce(expr);
 		let alias2 = this.bakAlsOnce(alias1);
 		while (!equals(alias1, alias2))
@@ -414,9 +423,8 @@ class ExecutionContext {
 		return alias2;
 	}
 
-	// TODO: don't alias bound vars
 	// print warning?
-	public evaluate(expression: string): ASTNode {
+	evaluate(expression: string): ASTNode {
 		let ast = parse(tokenize(expression));
 		ast = parse(tokenize(this.forwardAlias(ast).toString()));
 		ast = parse(tokenize(evaluate(ast).toString()));
@@ -425,9 +433,8 @@ class ExecutionContext {
 	}
 }
 
-export { TokenizeError } from './tokenize';
-export { ParseError } from './parse';
 export {
+	ParseError,
 	Token,
 	tokenize,
 	parse,

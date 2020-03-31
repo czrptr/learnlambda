@@ -1,25 +1,14 @@
-class TokenizeError extends Error implements Error {
-	constructor(
-		public readonly position: number,
-		message?: string
-	) {
-		super(message);
-	}
+import { ParseError } from "./utils";
 
-	public toPrint(): [string, string] {
-		return [" ".repeat(this.position) + "^", this.message];
-	}
-}
-
-interface Token {
+export interface Token {
 	readonly id: any;
 	readonly start: number;
 	readonly value: string;
 }
 
-type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: string, pos: number) => void;
+export type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: string, pos: number) => void;
 
-function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
+export function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
 	const separator = /^\s+/;
 
 	let result: Array<T> = [];
@@ -43,16 +32,9 @@ function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, Tok
 				}
 			}
 			if (!matched) {
-				throw new TokenizeError(i, `unexpected character: ${expression[i]}`)
+				throw new ParseError(i, `unexpected character: ${expression[i]}`)
 			}
 		}
 	}
 	return [...result, ...temp];
 }
-
-export {
-	TokenizeError,
-	Token,
-	TokenizeFunction,
-	tokenize
-};
