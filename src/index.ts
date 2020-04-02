@@ -1,74 +1,129 @@
-import { ParseError, ExecutionContext } from "./untyped";
+/* ====== CodeMirror setup ====== */
 
-let ctx = new ExecutionContext();
-ctx.addAlias("true", "λx.λy.x");
-ctx.addAlias("false", "λx.λy.y");
-ctx.addAlias("not", "λp.p false true");
-ctx.addAlias("and", "λp.λq.p q p");
-ctx.addAlias("or", "λp.λq.p p q");
+import CodeMirror, {
+	EditorConfiguration,
+	Editor,
+	Pos
+} from "codemirror";
 
-// ctx.addAlias("zero", "λf.λx.x");
-ctx.addAlias("succ", "λn.λf.λx.f (n f x)");
-ctx.addAlias("plus", "λm.λn.m succ n");
-ctx.addAlias("pow", "λb.λe.e b");
-ctx.addAlias("one", "succ false");
-ctx.addAlias("two", "succ one");
-ctx.addAlias("three", "succ two");
-ctx.addAlias("four", "succ three");
-ctx.addAlias("five", "succ four");
-ctx.addAlias("six", "succ five");
-ctx.addAlias("seven", "succ six");
-ctx.addAlias("eight", "succ seven");
-ctx.addAlias("nine", "succ eight");
-ctx.addAlias("ten", "succ nine");
-
-import CodeMirror from "codemirror";
 import "./cm/untyped";
 
-const Pos = CodeMirror.Pos;
-const prompt = "i> ";
+function initCodeMirror(
+	elementId: string,
+	config: EditorConfiguration | undefined
+): [Editor, HTMLElement] {
+	var htmlElement = document.getElementById(elementId)! as HTMLTextAreaElement;
+	var editor = CodeMirror.fromTextArea(htmlElement, config);
+	var codeMirrorElement = htmlElement.nextSibling! as HTMLElement;
+	htmlElement.parentNode!.removeChild(htmlElement);
+	codeMirrorElement.style.gridArea = elementId;
+	
+	return [editor, codeMirrorElement];
+}
 
-var editor = CodeMirror(document.getElementById("editor")!, {
+var termianlElement = document.getElementById("terminal")!;
+
+var [input, inputElement] = initCodeMirror("input", {
 	lineWrapping: false,
 	scrollbarStyle: "null",
 	mode: "untyped",
 });
-editor.setSize(null, "1.6em");
 
-var history = CodeMirror(document.getElementById("history")!, {
+var [history, historyElement] = initCodeMirror("history", {
 	lineWrapping: true,
-	readOnly: true,
+	// scrollbarStyle: "null",
+	readOnly: "nocursor",
 	mode: "untyped",
 });
-history.setSize(null, "50vh");
 
-var context = CodeMirror(document.getElementById("context-content")!, {
+var [context, contextElement] = initCodeMirror("context", {
 	lineWrapping: true,
-	readOnly: true,
+	// scrollbarStyle: "null",
+	readOnly: "nocursor",
 	mode: "untyped",
 });
-context.setSize(null, document.getElementById("history")!.clientHeight);
 
-for (let [alias, expr] of ctx.aliasesAsStrings)
-	context.setValue(context.getValue() + `${alias} → ${expr}\n\n`);
-context.setValue(context.getValue().trimRight());
+input.focus();
+
+/* ====== Interpreter ====== */
+
+import { ParseError, ExecutionContext } from "./untyped";
+
+function refreshContext(): void {
+	let display = "Context:\n\n";
+	for (let [alias, expr] of exeContext.aliasesAsStrings)
+		display += alias + " → " + expr + "\n\n";
+	display = display.trimRight();
+
+	context.setValue(display);
+}
 
 function strip(str: string): string {
-	const accept = /[^λ.()_0-9'a-zA-Z ]/g;
+	const accept = /[^λ.()_0-9'a-zA-Z =]/g;
 	return str.replace(accept, "");
 }
 
-editor.on("beforeChange", (sender, change) => {
-	// console.log(change.text);
+let exeContext = new ExecutionContext();
+exeContext.addAlias("true", "λx.λy.x");
+exeContext.addAlias("false", "λx.λy.y");
+exeContext.addAlias("not", "λp.p false true");
+exeContext.addAlias("and", "λp.λq.p q p");
+exeContext.addAlias("or", "λp.λq.p p q");
+
+// exeContext.addAlias("zero", "λf.λx.x");
+exeContext.addAlias("succ", "λn.λf.λx.f (n f x)");
+exeContext.addAlias("plus", "λm.λn.m succ n");
+exeContext.addAlias("pow", "λb.λe.e b");
+exeContext.addAlias("one", "succ false");
+exeContext.addAlias("two", "succ one");
+exeContext.addAlias("three", "succ two");
+exeContext.addAlias("four", "succ three");
+exeContext.addAlias("five", "succ four");
+exeContext.addAlias("six", "succ five");
+exeContext.addAlias("seven", "succ six");
+exeContext.addAlias("eight", "succ seven");
+exeContext.addAlias("nine", "succ eight");
+exeContext.addAlias("ten", "succ nine");
+
+refreshContext();
+
+input.on("beforeChange", (sender, change) => {
+	const addInstr = /([a-z][_0-9'a-z]*)\s=\s(.+)/i;
+	const delInstr = /del\s([a-z][_0-9'a-z]*)/i; 
+
+	const hist = history.getValue().length != 0 ? history.getValue() + "\n\n" : "";
 
 	// enter was pressed
 	if (change.text.length == 2 && change.text[0] == "" && change.text[1] == "") {
 		change.cancel();
-		const expr = editor.getValue().trim();
-		const hist = history.getValue().length != 0 ? history.getValue() + "\n\n" : "";
-		try {
-			const result = ctx.evaluate(expr);
+		const expr = sender.getValue().trim();
 
+		let match = expr.match(addInstr);
+		if (match) {
+			exeContext.addAlias(match[1], match[2]);
+			refreshContext();
+
+			history.setValue(hist + match[1] + " → " + match[2] + " added to context");
+			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
+			sender.setValue("");
+
+			return;
+		}
+		match = expr.match(delInstr);
+		if (match) {
+			console.log(match[1]);
+			exeContext.removeAlias(match[1]);
+			refreshContext();
+
+			history.setValue(hist + match[1] + " removed from context");
+			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
+			sender.setValue("");
+
+			return;
+		}
+
+		try {
+			const result = exeContext.evaluate(expr);
 			history.setValue(hist + "λ> " + result);
 			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
 		} catch (e) {
@@ -76,11 +131,9 @@ editor.on("beforeChange", (sender, change) => {
 				history.setValue(hist + "ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
 			}
 		}
-		editor.setValue("");
+		sender.setValue("");
 	}
 
 	const input = change.text.map(line => strip(line.replace(/\\/g, "λ")));
 	change.update!(undefined, undefined, input);
 });
-
-editor.focus();

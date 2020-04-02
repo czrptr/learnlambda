@@ -382,6 +382,7 @@ class ExecutionContext {
 
 	removeAlias(alias: string): void {
 		this.aliases.delete(alias);
+		this.unaliases.delete(alias);
 	}
 
 	forAlsOnce(expr: ASTNode): ASTNode {

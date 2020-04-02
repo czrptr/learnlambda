@@ -2,28 +2,9 @@
 @import "./vars.css";
 @import "./codemirror.css";
 
-::-webkit-scrollbar {
-    width: 0.5em !important;
-    scroll-behavior: smooth !important;
-}
-
-::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: darkgrey !important;
-    outline: 1px solid slategrey !important;
-    border-radius: 10px !important;
-}
-
-* {
-	scrollbar-color: darkgrey transparent !important;
-}
-
 html {
 	color: white;
-	font-size: 1.125em;
+	font-size: 1.25em;
 	font-family: monospace;
 }
 
@@ -32,125 +13,80 @@ body {
 	min-height: 100vh;
 	display: grid;
 	grid-template-areas: 
-		"pad pad pad pad"
-		"pad edi ctx pad"
-		"pad hst ctx pad"
-		"pad abt ctx pad"
-		"pad pad pad pad";
-	grid-template-columns: 1fr auto 1fr 1fr;
-	grid-template-rows: 1fr repeat(3, auto) 1fr;
-}
-
-a {
-	text-decoration: none;
+		"head"
+		"content"
+		"foot";
+	grid-template-columns: 1fr;
+	grid-template-rows: 4.5em auto 3em;
 }
 
 header {
-	position: fixed;
-	width: 50vw;
-	margin: 0 auto;
-	top: 2em;
-	left: 0;
-	right: 0;
-}
-
-header h1 {
-	font-size: 2em;
-	float: left;
-}
-
-header a {
-	color: white;
+	background-color: var(--term-background-color);
 	font-size: 1.5em;
-	float: right;
-	margin-left: 1em;
+	grid-area: head;
+	display: flex;
+	padding: 0 calc(var(--horizontal-pad) + 10vw);
+	justify-content: space-between;
+	line-height: 3em;
+	text-align: center;
 }
 
 footer {
-	position: fixed;
-	width: 50vw;
-	margin: 0 auto;
-	bottom: 2em;
-	left: 0;
-	right: 0;
+	background-color: var(--term-background-color);
+	grid-area: foot;
+	line-height: 3em;
 	text-align: center;
-	color: #888;
 }
 
-footer a {
-	color: white;
+main {
+	grid-area: content;
+	padding: 2em 0;
+	display: grid;
+	grid-template-areas: 
+		". instr   instr   opts    ."
+		". prompt  input   context ."
+		". history history context ."
+		". feat    feat    feat    .";
+	grid-template-rows: auto 1.5em 50vh auto;
+	grid-template-columns: var(--horizontal-pad) auto 3fr 1fr var(--horizontal-pad);
 }
 
-#editor-container, #history {
-	--radius: 20px;
-	border: var(--radius) solid var(--term-background-color);
-	border-radius: var(--radius);
+#instructions {
+	background-color: var(--page-background-color);
+	font-size: 1.25em;
+	grid-area: instr;
 }
 
-#editor-container, #history {
-	width: calc(100vw / 3);
-}
-
-#editor-container {
-	grid-column: 2/3;
-	grid-row: 2/3;
-	border-bottom: 0;
-	border-bottom-left-radius: 0;
-	border-bottom-right-radius: 0;
-	border-top-right-radius: 0;
+#options {
+	background-color: var(--page-background-color);
+	font-size: 1.25em;
+	grid-area: opts;
 }
 
 #prompt {
-	font-size: 1.125em;
-	padding-top: 0.3em;
-	padding-bottom: 0.3em;
-	padding-left: 0.3em;
-	float: left;
 	background-color: var(--term-background-color);
-	text-align: end;
+	font-size: 1.125em;
+	grid-area: prompt;
+	line-height: 1.5em;
+	text-align: center;
+	padding-left: 0.25em;
+}
+
+#input {
+	grid-area: input;
 }
 
 #history {
-	grid-column: 2/3;
-	grid-row: 3/4;
-	border-top-left-radius: 0;
-	border-top-right-radius: 0;
-	border-bottom-right-radius: 0;
-}
-
-#history .CodeMirror-cursor {
-	border: 0px;
+	grid-area: hist;
 }
 
 #context {
-	border: 0.5em solid var(--term-background-color);
-	border-radius: 20px;
-	border-left: 0;
-	background-color: var(--page-background-color);
-	grid-column: 3/4;
-	grid-row: 2/4;
-	border-top-left-radius: 0;
-	border-bottom-left-radius: 0;
-	padding-left: 1em;
-}
-
-#context h1 {
-	font-size: 1.5em;
-	text-align: center;
-	margin-top: 1em;
-}
-
-#context-content .CodeMirror {
-	background-color: var(--page-background-color);
+	grid-area: ctx;
 }
 
 #features {
-	margin-top: 4em;
-	grid-column: 2/3;
-	grid-row: 4/5;
-}
+	background-color: var(--page-background-color);
+	font-size: 1.25em;
 
-#features h1 {
-	font-size: 2.5em;
-	text-align: center;
+	grid-area: feat;
 }

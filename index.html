@@ -10,22 +10,37 @@
 </head>
 <body>
 	<header>
+		<!-- put cool animate logo here -->
 		<h1>λ Calculus Interpreter</h1>
-		<a href="#features">Features</a>
-		<a href="#editor">Editor</a>
+		<nav>
+			<!-- put these in a list -->
+			<a href="#editor">Editor</a>
+			<a href="#features">Features</a>
+		</nav>
 	</header>
-	<div id="editor-container">
+	<main>
+		<section id="instructions">
+			<h1>Instructions:</h1>
+			<p>- evaluate: λx.x</p>
+			<p>- add to context: id = &lt;term&gt;</p>
+			<p>- remove from context: del id</p>
+		</section>
+		<section id="options">
+			<h1>Options (not working)</h1>
+			<input type="checkbox" id="check-debug" name="check-debug">
+			<label for="check-debug">Debug</label><br>
+		</section>
 		<p id="prompt">i></p>
-		<div id="editor"></div>
-	</div>
-	<div id="history"></div>
-	<div id="context">
-		<h1>Context</h1>
-		<div id="context-content"></div>
-	</div>
-	<div id="features">
-		<h1>Features</h1>
-	</div>
+		<textarea id="input"></textarea>
+		<textarea id="history"></textarea>
+		<textarea id="context"></textarea>
+		<section id="features">
+			<h1>Features</h1>
+			<p>- good errors</p>
+			<p>- pretty formating</p>
+			<p>- does stuff, I'll write it later</p>
+		</section>
+	</main>
 	<footer>
 		<p>© <a href="https://github.com/czrptr">Cezar Petriuc</a>, Faculty of Computer Science, „Alexandru Ioan Cuza" University of Iași.</p>
 	</footer>
