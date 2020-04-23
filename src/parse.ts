@@ -53,9 +53,9 @@ export class Parser<T extends Token> {
 
 	protected get currentPosition(): number {
 		if (this.index >= this.tokens.length)
-			return this.tokens[this.tokens.length - 1].start + 1;
+			return this.tokens[this.tokens.length - 1].start + this.tokens[this.tokens.length - 1].value.length;
 		else
-			return this.tokens[this.index].start;
+			return this.tokens[this.index].start + + this.tokens[this.index].value.length;
 	}
 
 	protected get done(): boolean {
