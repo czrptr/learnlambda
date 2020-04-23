@@ -340,8 +340,7 @@ function evaluate(expr: ASTNode): ASTNode {
 enum StepType {
 	Alpha = "α>",
 	Beta  = "β>",
-	AlsF  = "≡>",
-	AlsB  = "≡>"
+	Als   = "≡>"
 }
 
 // TODO? error on unknown free
@@ -446,7 +445,7 @@ class ExecutionContext {
 		res.push([StepType.Alpha, ast.toString()]);
 
 		ast = parse(tokenize(this.forwardAlias(ast).toString()));
-		res.push([StepType.AlsF, ast.toString()]);
+		res.push([StepType.Als, ast.toString()]);
 
 		//TODO: detect renaming
 		let eval1 = evalOnce(ast);
@@ -460,7 +459,7 @@ class ExecutionContext {
 		res.push([StepType.Beta, ast.toString()]);
 
 		ast = parse(tokenize(this.backwardAlias(ast).toString()))
-		res.push([StepType.AlsB, ast.toString()]);
+		res.push([StepType.Als, ast.toString()]);
 
 		return res;
 	}

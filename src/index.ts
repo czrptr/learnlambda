@@ -40,8 +40,20 @@ var [input, inputElement] = initCodeMirror("input", {
 	mode: "untyped",
 	viewportMargin: Infinity,
 });
+
+function getFontSize(parentElement: HTMLElement)
+{
+    var div = document.createElement('div');
+    div.style.width = "1000em";
+    parentElement.appendChild(div);
+    var pixels = div.offsetWidth / 1000;
+    parentElement.removeChild(div);
+    return pixels;
+}
+
 inputElement.style.height = "auto";
-inputElement.style.width = `calc(${historyElement.clientWidth}px - 1.8em`;
+inputElement.style.width = `${historyElement.clientWidth - 1.8 * getFontSize(inputElement)}px`;
+// inputElement.style.width = `calc(${historyElement.clientWidth}px - 1.8em`;
 input.focus();
 
 var [context, contextElement] = initCodeMirror("context", {
