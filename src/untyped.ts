@@ -370,7 +370,7 @@ class ExecutionContext {
 		ast = parse(tokenize(evaluate(ast).toString()));
 
 		for (let [key, value] of this.aliases)
-			if(equals(ast, value))
+			if (equals(ast, value))
 				throw "DUPLICATE!";
 
 		if (ast instanceof Identifier)
@@ -400,7 +400,6 @@ class ExecutionContext {
 		return alias2;
 	}
 
-	// no identifiers (see aliases TODO)
 	private bakAlsOnce(expr: ASTNode): ASTNode {
 		for (let [key, value] of this.aliases)
 			if (equals(expr, value))

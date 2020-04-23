@@ -20,6 +20,11 @@ body {
 	grid-template-rows: 4.5em auto 3em;
 }
 
+ul {
+	list-style-type: disc;
+	list-style-position: inside;
+}
+
 header {
 	background-color: var(--term-background-color);
 	font-size: 1.5em;
@@ -43,12 +48,12 @@ main {
 	padding: 2em 0;
 	display: grid;
 	grid-template-areas: 
-		". instr   instr   opts    ."
-		". prompt  input   context ."
-		". history history context ."
-		". feat    feat    feat    .";
-	grid-template-rows: auto 1.5em 50vh auto;
-	grid-template-columns: var(--horizontal-pad) auto 3fr 1fr var(--horizontal-pad);
+		". instr opts    ."
+		". term  context ."
+		". feat  feat    .";
+	grid-template-rows: 5em 60vh auto;
+	grid-template-columns: var(--horizontal-pad) 3fr 1fr var(--horizontal-pad);
+	row-gap: 2em;
 }
 
 #instructions {
@@ -63,30 +68,19 @@ main {
 	grid-area: opts;
 }
 
-#prompt {
+#terminal {
+	grid-area: term;
+	overflow-y: scroll;
 	background-color: var(--term-background-color);
-	font-size: 1.125em;
-	grid-area: prompt;
-	line-height: 1.5em;
-	text-align: center;
-	padding-left: 0.25em;
-}
-
-#input {
-	grid-area: input;
-}
-
-#history {
-	grid-area: hist;
+	user-select: none;
 }
 
 #context {
-	grid-area: ctx;
+	grid-area: context;
 }
 
 #features {
 	background-color: var(--page-background-color);
 	font-size: 1.25em;
-
 	grid-area: feat;
 }

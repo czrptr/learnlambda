@@ -20,25 +20,36 @@
 	</header>
 	<main>
 		<section id="instructions">
-			<h1>Instructions:</h1>
-			<p>- evaluate: λx.x</p>
-			<p>- add to context: id = &lt;term&gt;</p>
-			<p>- remove from context: del id</p>
+			<h1>Instructions</h1>
+			<ul>
+				<li>evaluate λ-expressions (see <a href="#grammar">grammer</a>)</li>
+				<li>add λ-terms to context (id = &lt;term&gt;)</li>
+				<li>remove λ-terms from context (del &lt;id&gt;)</li>
+			</ul>
 		</section>
 		<section id="options">
-			<h1>Options (not working)</h1>
-			<input type="checkbox" id="check-debug" name="check-debug">
-			<label for="check-debug">Debug</label><br>
+			<h1>Options:</h1>
+			<input type="checkbox" id="check-mode" name="check-mode">
+			<label for="check-mode">Verbose</label><br>
 		</section>
-		<p id="prompt">i></p>
-		<textarea id="input"></textarea>
-		<textarea id="history"></textarea>
+		<div id="terminal">
+			<textarea id="history"></textarea>
+			<textarea id="input"></textarea>
+		</div>
 		<textarea id="context"></textarea>
 		<section id="features">
+			<h1 id="grammer">Grammar rules</h1>
+			<ul>
+				<li>any identifier is a λ-term</li>
+				<li>given identifier x and a λ-term t, λx.t is a λ-term</li>
+				<li>given t1 and t2 two λ-terms, (t1 t2) is a λ-term</li>
+			</ul>
+			<br>
 			<h1>Features</h1>
-			<p>- good errors</p>
-			<p>- pretty formating</p>
-			<p>- does stuff, I'll write it later</p>
+			<ul>
+				<li>type "\" to get "λ"</li>
+				<li>enable Verbouse option to see the step-by-step evaluation </li>
+			</ul>
 		</section>
 	</main>
 	<footer>
