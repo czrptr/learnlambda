@@ -17,6 +17,7 @@ function initCodeMirror(
 	var editor = CodeMirror.fromTextArea(htmlElement, config);
 	var codeMirrorElement = htmlElement.nextSibling! as HTMLElement;
 	htmlElement.parentNode!.removeChild(htmlElement);
+	codeMirrorElement.id = elementId;
 
 	if (setGrid)
 		codeMirrorElement.style.gridArea = elementId;
@@ -32,7 +33,7 @@ var [history, historyElement] = initCodeMirror("history", {
 	mode: "untyped",
 	viewportMargin: Infinity,
 });
-historyElement.style.height = "auto";
+historyElement.style.height = "0";
 
 var [input, inputElement] = initCodeMirror("input", {
 	lineWrapping: true,
@@ -40,14 +41,18 @@ var [input, inputElement] = initCodeMirror("input", {
 	viewportMargin: Infinity,
 });
 inputElement.style.height = "auto";
+inputElement.style.width = `calc(${historyElement.clientWidth}px - 1.8em`;
 input.focus();
 
 var [context, contextElement] = initCodeMirror("context", {
 	lineWrapping: true,
-	// scrollbarStyle: "null",
 	readOnly: "nocursor",
 	mode: "untyped",
 }, true);
+
+function appendHistory(text: string): void {
+	history.setValue((history.getValue() + "\n\n" + text).trim());
+}
 
 /* ====== Interpreter ====== */
 
@@ -57,7 +62,7 @@ import {
 } from "./untyped";
 
 function refreshContext(): void {
-	let display = "Context:\n\n";
+	let display = "Context\n\n";
 	for (let [alias, expr] of exeContext.aliasesAsStrings)
 		display += alias + " → " + expr + "\n\n";
 	display = display.trimRight();
@@ -102,56 +107,66 @@ exeContext.addAlias("ten", "succ nine");
 refreshContext();
 
 input.on("beforeChange", (sender, change) => {
+	const setStyle = () => {
+		inputElement.style.marginTop = "0.55em";
+		historyElement.style.height = "auto";
+	};
+
 	const addInstr = /([a-z][_0-9'a-z]*)\s=\s(.+)/i;
 	const delInstr = /del\s([a-z][_0-9'a-z]*)/i;
-
-	const hist = history.getValue().length != 0 ? history.getValue() + "\n\n" : "";
 
 	// enter was pressed
 	if (change.text.length == 2 && change.text[0] == "" && change.text[1] == "") {
 		change.cancel();
 		const expr = sender.getValue().trim();
 
+		// add command
 		let match = expr.match(addInstr);
 		if (match) {
 			// treat errors
 			exeContext.addAlias(match[1], match[2]);
 			refreshContext();
 
-			history.setValue(hist + match[1] + " → " + match[2] + " added to context");
-			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
+			appendHistory("c> " + match[1] + " → " + match[2] + " added to context");
 			sender.setValue("");
 
+			setStyle();
 			return;
 		}
+
+		// del command
 		match = expr.match(delInstr);
 		if (match) {
 			console.log(match[1]);
 			exeContext.removeAlias(match[1]);
 			refreshContext();
 
-			history.setValue(hist + match[1] + " removed from context");
-			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
+			appendHistory("c> " + match[1] + " removed from context");
 			sender.setValue("");
 
+			setStyle();;
 			return;
 		}
 
+		// eval command
 		try {
 			const result = exeContext.evaluate(expr);
-			history.setValue(hist + "λ> " + result);
-			history.scrollIntoView(Pos(history.lineCount() - 1, 0));
+			appendHistory("λ> " + result);
 		} catch (e) {
 			if (e instanceof ParseError) {
-				history.setValue(hist + "ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
+				appendHistory("ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
 			}
 		}
 		sender.setValue("");
+
+		setStyle();
 	}
 
+	// strip input of unaccepted characters and replace "\" with "λ"
 	const input = change.text.map(line => strip(line.replace(/\\/g, "λ")));
 	change.update!(undefined, undefined, input);
 
+	// scrol terminal
 	// web dev is a bad joke
 	setTimeout(() => {
 		termianlElement.scrollTop = termianlElement.scrollHeight;
