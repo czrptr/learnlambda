@@ -337,6 +337,13 @@ function evaluate(expr: ASTNode): ASTNode {
 	return eval2;
 }
 
+enum StepType {
+	Alpha = "α>",
+	Beta  = "β>",
+	AlsF  = "≡>",
+	AlsB  = "≡>"
+}
+
 // TODO? error on unknown free
 class ExecutionContext {
 
@@ -430,6 +437,32 @@ class ExecutionContext {
 		ast = parse(tokenize(evaluate(ast).toString()));
 		ast = parse(tokenize(this.backwardAlias(ast).toString()))
 		return ast;
+	}
+
+	verboseEvaluate(expression: string): Array<[StepType, string]> {
+		let res: Array<[StepType, string]> = [];
+
+		let ast = parse(tokenize(expression));
+		res.push([StepType.Alpha, ast.toString()]);
+
+		ast = parse(tokenize(this.forwardAlias(ast).toString()));
+		res.push([StepType.AlsF, ast.toString()]);
+
+		//TODO: detect renaming
+		let eval1 = evalOnce(ast);
+		let eval2 = evalOnce(eval1);
+		while (!equals(eval1, eval2)) {
+			res.push([StepType.Beta, eval1.toString()]);
+			[eval1, eval2] = [eval2, evalOnce(eval2)];
+		}
+
+		ast = parse(tokenize(evaluate(ast).toString()));
+		res.push([StepType.Beta, ast.toString()]);
+
+		ast = parse(tokenize(this.backwardAlias(ast).toString()))
+		res.push([StepType.AlsB, ast.toString()]);
+
+		return res;
 	}
 }
 

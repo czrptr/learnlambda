@@ -76,12 +76,11 @@ function strip(str: string): string {
 }
 
 let exeContext = new ExecutionContext();
-// {
-// 	let checkModeElement = document.getElementById("check-mode")! as HTMLInputElement;
-// 	checkModeElement.onclick = () => {
-// 		exeContext.mode = checkModeElement.checked ? ExecutionMode.Verbose : ExecutionMode.Concise;
-// 	};
-// }
+
+let checkModeElement = document.getElementById("check-mode")! as HTMLInputElement;
+function verboseMode(): boolean {
+	return checkModeElement.checked;
+}
 
 exeContext.addAlias("true", "λx.λy.x");
 exeContext.addAlias("false", "λx.λy.y");
@@ -150,8 +149,15 @@ input.on("beforeChange", (sender, change) => {
 
 		// eval command
 		try {
-			const result = exeContext.evaluate(expr);
-			appendHistory("λ> " + result);
+			if (verboseMode()) {
+				const result = exeContext.verboseEvaluate(expr);
+				for (const [type, expr] of result) {
+					appendHistory(type + " " + expr);
+				}
+			} else {
+				const result = exeContext.evaluate(expr);
+				appendHistory("λ> " + result);
+			}
 		} catch (e) {
 			if (e instanceof ParseError) {
 				appendHistory("ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
