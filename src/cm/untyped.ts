@@ -7,11 +7,10 @@ CodeMirror.defineMode("untyped", () => {
 			if (stream.match(/^[a-z][_0-9a-z]*/i, true))
 				return "identifier";
 			
+			if (stream.match("'('", true))
+				return null;
+
 			switch (stream.peek()) {
-			case "ε": {
-				stream.next();
-				return "epsilon";
-			}
 			case "λ": {
 				stream.next();
 				return "lambda";

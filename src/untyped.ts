@@ -221,6 +221,8 @@ class Parser extends BaseParser<Token> {
 			return new Identifier(id, this.context.indexOf(id));
 		} else if (this.nextIs(Id.RightPren) && this.paren == 0) {
 			throw new ParseError(this.currentPosition, "unmatched ')'");
+		} else if (this.nextIs(Id.Lambda)) {
+			throw new ParseError(this.currentPosition - 1, "'(' expected");
 		} else {
 			return undefined;
 		}
@@ -324,7 +326,8 @@ function evalOnce(expr: ASTNode): ASTNode {
 		temp = new Abstraction(expr.binding, evalOnce(expr.body));
 
 	let ret = (temp != undefined) ? temp : expr;
-	return parse(tokenize(ret.toString()));
+	
+	return parse(tokenize(ret.toString()))
 }
 
 // (λx.x x) (λx.x x) protection by accident
@@ -338,6 +341,7 @@ function evaluate(expr: ASTNode): ASTNode {
 }
 
 enum StepType {
+	Normal = "λ>",
 	Alpha = "α>",
 	Beta  = "β>",
 	Als   = "≡>"
@@ -358,17 +362,6 @@ class ExecutionContext {
 		return res;
 	}
 
-	private isCircularDefined(ast: ASTNode, defs: Array<string> = []): boolean {
-		// const freeVars = free(ast);
-
-		// let ret = false;
-		// for (let freeVar of freeVars)
-		// 	if (this.aliases.has(freeVar))
-		// 		ret = ret && this.isCircularDefined(this.aliases.get(freeVar)!, [...defs, freeVar]);
-		// return ret;
-		return false;
-	}
-
 	addAlias(alias: string, expr: string): void {
 		let ast = parse(tokenize(expr));
 		expr = ast.toString();
@@ -386,9 +379,9 @@ class ExecutionContext {
 		this.unaliases.set(alias, expr);
 	}
 
-	removeAlias(alias: string): void {
+	removeAlias(alias: string): boolean {
 		this.aliases.delete(alias);
-		this.unaliases.delete(alias);
+		return this.unaliases.delete(alias);
 	}
 
 	forAlsOnce(expr: ASTNode): ASTNode {
@@ -442,7 +435,7 @@ class ExecutionContext {
 		let res: Array<[StepType, string]> = [];
 
 		let ast = parse(tokenize(expression));
-		res.push([StepType.Alpha, ast.toString()]);
+		res.push([StepType.Normal, ast.toString()]);
 
 		ast = parse(tokenize(this.forwardAlias(ast).toString()));
 		res.push([StepType.Als, ast.toString()]);

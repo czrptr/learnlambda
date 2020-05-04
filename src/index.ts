@@ -72,6 +72,7 @@ import {
 	ParseError,
 	ExecutionContext
 } from "./untyped";
+import { clamp } from "./utils";
 
 function refreshContext(): void {
 	let display = "Context\n\n";
@@ -117,45 +118,80 @@ exeContext.addAlias("ten", "succ nine");
 
 refreshContext();
 
+let inputHistory: string[] = [];
+let inputHistoryIndex = 0;
+
 input.on("beforeChange", (sender, change) => {
 	const setStyle = () => {
 		inputElement.style.marginTop = "0.55em";
 		historyElement.style.height = "auto";
 	};
 
-	const addInstr = /([a-z][_0-9'a-z]*)\s=\s(.+)/i;
-	const delInstr = /del\s([a-z][_0-9'a-z]*)/i;
+	// console.log(change);
+
+	const delInstr = /del\s([a-z][_0-9'a-z]*)/i;	
 
 	// enter was pressed
 	if (change.text.length == 2 && change.text[0] == "" && change.text[1] == "") {
 		change.cancel();
 		const expr = sender.getValue().trim();
 
-		// add command
-		let match = expr.match(addInstr);
-		if (match) {
-			// treat errors
-			exeContext.addAlias(match[1], match[2]);
-			refreshContext();
-
-			appendHistory("c> " + match[1] + " → " + match[2] + " added to context");
+		// clear command
+		if (expr == "cls" || expr == "clear") {
+			history.setValue("");
 			sender.setValue("");
+			historyElement.style.height = "0";
+			return;
+		}
 
+		// add command
+		const eqx = expr.indexOf("=");
+		if (eqx != -1) {
+			let id = expr.substring(0, eqx).trimRight();
+			let match = id.match(/[a-z][_0-9'a-z]*/i)
+			if (!(match && match[0].length == id.length)) {
+				appendHistory("ε> invalid alias identifier");
+				sender.setValue("");
+				setStyle();
+
+				inputHistory.push(expr);
+				inputHistoryIndex = inputHistory.length;
+				return;
+			}
+
+			let term = expr.substring(eqx + 1).trimLeft();
+			try {
+				exeContext.addAlias(id, term);
+				refreshContext();
+				appendHistory("c> " + id + " → " + term + " added to context");
+			} catch (e) {
+				if (e instanceof ParseError)
+					appendHistory("ε> " + term + "\n   " + e.positionString + "\n" + e.message);
+			}
+
+			sender.setValue("");
 			setStyle();
+
+			inputHistory.push(expr);
+			inputHistoryIndex = inputHistory.length;
 			return;
 		}
 
 		// del command
-		match = expr.match(delInstr);
+		let match = expr.match(delInstr);
 		if (match) {
 			console.log(match[1]);
-			exeContext.removeAlias(match[1]);
-			refreshContext();
-
-			appendHistory("c> " + match[1] + " removed from context");
+			if (exeContext.removeAlias(match[1])) {
+				refreshContext();
+				appendHistory("c> " + match[1] + " removed from context");
+			} else {
+				appendHistory("ε> " + match[1] + " is not in context");
+			}
 			sender.setValue("");
+			setStyle();
 
-			setStyle();;
+			inputHistory.push(expr);
+			inputHistoryIndex = inputHistory.length;
 			return;
 		}
 
@@ -177,6 +213,8 @@ input.on("beforeChange", (sender, change) => {
 		}
 		sender.setValue("");
 
+		inputHistory.push(expr);
+		inputHistoryIndex = inputHistory.length;
 		setStyle();
 	}
 
@@ -189,4 +227,21 @@ input.on("beforeChange", (sender, change) => {
 	setTimeout(() => {
 		termianlElement.scrollTop = termianlElement.scrollHeight;
 	}, 0);
+});
+
+
+input.on("keyHandled", (instance, name, event) => {
+	if (name == "Up") {
+		inputHistoryIndex = Math.max(0, inputHistoryIndex - 1);
+		input.setValue(inputHistory[inputHistoryIndex]);
+	}
+
+	if (name == "Down") {
+		if (inputHistoryIndex == inputHistory.length) {
+			input.setValue("");
+		} else {
+			inputHistoryIndex = Math.min(inputHistory.length, inputHistoryIndex + 1);
+			input.setValue(inputHistory[inputHistoryIndex]);
+		}
+	}
 });

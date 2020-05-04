@@ -9,7 +9,7 @@ import {
 const log = console.log;
 
 let ctx = new ExecutionContext();
-ctx.addAlias("true", "λx.λy.x");
+// ctx.addAlias("true", "λx.λy.x");
 // ctx.addAlias("false", "λx.λy.y");
 // ctx.addAlias("not", "λp.p false true");
 // ctx.addAlias("and", "λp.λq.p q p");
@@ -30,7 +30,7 @@ ctx.addAlias("true", "λx.λy.x");
 // ctx.addAlias("nine", "succ eight");
 // ctx.addAlias("ten", "succ nine");
 
-const expr = ")"; //λ
+const expr = "x λx.x"; //λ
 try {
 	const ast = parse(tokenize(expr));
 	log(ast);

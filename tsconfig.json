@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
-		"module": "CommonJS", // for local debugging
-		// "module": "ES6",
+		// "module": "CommonJS", // for local debugging
+		"module": "ES6",
 		"target": "ES6",
 		"types": [
 			"node",
