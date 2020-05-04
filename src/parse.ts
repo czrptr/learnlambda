@@ -1,4 +1,4 @@
-import { ParseError } from "./utils";
+import { ParseError, clamp } from "./utils";
 
 class Context {
 	private data: Array<string> = [];
@@ -47,17 +47,6 @@ export class Parser<T extends Token> {
 		this.context = new Context();
 	}
 
-	protected get currentTokenIndex(): number {
-		return this.index;
-	}
-
-	protected get currentPosition(): number {
-		if (this.index >= this.tokens.length)
-			return this.tokens[this.tokens.length - 1].start + this.tokens[this.tokens.length - 1].value.length;
-		else
-			return this.tokens[this.index].start + this.tokens[this.index].value.length;
-	}
-
 	protected get done(): boolean {
 		return this.index >= this.tokens.length;
 	}
@@ -78,12 +67,18 @@ export class Parser<T extends Token> {
 		return false;
 	}
 
-	match(id: any, error: string): string {
+	match(id: any, error: string, tokenOffset: number = 0): string {
 		if (this.nextIs(id)) {
 			this.index += 1;
 			return this.tokens[this.index - 1].value;
 		} else {
-			throw new ParseError(this.currentPosition, error);
+			const index = Math.min(this.index + tokenOffset, this.tokens.length - 1);
+			throw new ParseError(this.tokens[index].start + this.tokens[index].value.length, error);
 		}
+	}
+
+	raiseParseError(error: string, tokenOffset: number = 0): never {
+		const index = clamp(this.index + tokenOffset, 0, this.tokens.length - 1);
+		throw new ParseError(this.tokens[index].start + this.tokens[index].value.length, error);
 	}
 }

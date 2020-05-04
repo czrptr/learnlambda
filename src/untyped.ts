@@ -163,11 +163,11 @@ class Parser extends BaseParser<Token> {
 
 	term(): ASTNode {
 		if (this.done)
-			throw new ParseError(this.currentPosition, "λ-term expected");
+			this.raiseParseError("λ-term expected");
 
 		if (this.skipIs(Id.Lambda)) {
-			const id = this.match(Id.Identifier, "λ-abstraction binding expected");
-			this.match(Id.Dot, "'.' expected");
+			const id = this.match(Id.Identifier, "λ-abstraction binding expected", -1);
+			this.match(Id.Dot, "'.' expected", -1);
 			if (this.context.indexOf(id) == 0) {
 				this.context.push(id);
 				const body = this.term();
@@ -191,7 +191,7 @@ class Parser extends BaseParser<Token> {
 		let lhs = this.atom();
 
 		if (!lhs)
-			throw new ParseError(this.currentPosition, "λ-term expected");
+			this.raiseParseError("λ-term expected");
 
 		while (true) {
 			const rhs = this.atom();
@@ -204,8 +204,7 @@ class Parser extends BaseParser<Token> {
 
 	atom(): ASTNode | undefined {
 		if (this.nextIs(Id.Dot)) {
-			const i = this.currentTokenIndex - 1;
-			throw new ParseError(this.tokens[i < 0 ? 0 : i].start, "'λ' expected");
+			this.raiseParseError("'λ' expected", -1);
 		} else if (this.skipIs(Id.LeftPren)) {
 			this.paren += 1;
 			const term = this.term();
@@ -217,9 +216,9 @@ class Parser extends BaseParser<Token> {
 			id = this.context.getSwap(id); // in case of double binding
 			return new Identifier(id, this.context.indexOf(id));
 		} else if (this.nextIs(Id.RightPren) && this.paren == 0) {
-			throw new ParseError(this.currentPosition, "unmatched ')'");
+			this.raiseParseError("unmatched ')'", -1);
 		} else if (this.nextIs(Id.Lambda)) {
-			throw new ParseError(this.currentPosition - 1, "'(' expected");
+			this.raiseParseError("'(' expected");
 		} else {
 			return undefined;
 		}
