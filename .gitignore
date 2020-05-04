@@ -1,6 +1,7 @@
 ## Project specific ignore files
 
 dist
+src/run.ts
 !dist/bundle.js
 
 ## VSCode ignore files
