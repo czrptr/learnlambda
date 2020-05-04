@@ -20,7 +20,7 @@ enum Id {
 }
 
 class Token implements BaseToken {
-	public static Id = Id;
+	static Id = Id;
 
 	constructor(
 		public readonly id: Id,
@@ -39,10 +39,9 @@ class Token implements BaseToken {
 type TokenizeFunction = BaseTokenizeFunction<Token>;
 
 function isSimply(id: Id): TokenizeFunction {
-	let result: TokenizeFunction = (tokens: Array<Token>, expression: string, pos: number) => {
+	return (tokens: Array<Token>, expression: string, pos: number) => {
 		tokens.push(new Token(id, pos, expression));
 	};
-	return result;
 }
 
 function isIdentifier(tokens: Array<Token>, expression: string, pos: number): void {
@@ -63,7 +62,6 @@ function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): vo
 	}
 }
 
-// TODO? add ' to identifiers
 const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^\./, isSimply(Id.Dot)],
 	[/^λ/, isSimply(Id.Lambda)],
