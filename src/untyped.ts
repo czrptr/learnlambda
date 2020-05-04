@@ -158,7 +158,6 @@ atom ::= LEFTP term RIGHTP
 
 */
 
-// FIXME y (λx.x)
 class Parser extends BaseParser<Token> {
 	private paren: number = 0;
 

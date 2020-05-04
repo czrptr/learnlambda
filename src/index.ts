@@ -72,7 +72,6 @@ import {
 	ParseError,
 	ExecutionContext
 } from "./untyped";
-import { clamp } from "./utils";
 
 function refreshContext(): void {
 	let display = "Context\n\n";
