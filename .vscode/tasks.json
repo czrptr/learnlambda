@@ -11,9 +11,9 @@
 				"isDefault": true
 			},
 			"linux": {
-				"command": "node index.js",
+				"command": "node run.js",
 				"options": {
-					"cwd": "${workspaceRoot}/out/"
+					"cwd": "${workspaceRoot}/dist"
 				}
 			},
 			"problemMatcher": []
@@ -22,7 +22,7 @@
             "label": "Clean output",
 			"type": "shell",
 			"linux": {
-				"command": "rm -rf ${workspaceRoot}/out/*"
+				"command": "rm -rf ${workspaceRoot}/dist/*"
 			},
 			"problemMatcher": []
 		}
