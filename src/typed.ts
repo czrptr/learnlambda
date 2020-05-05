@@ -275,6 +275,54 @@ function fresh(used: Array<string>): string {
 	return f;
 }
 
+// TODO: target != true,false
+function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
+	let ret: AstNode;
+
+	if (expr instanceof Variable)
+		ret = expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		ret = new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+	else if (expr instanceof IfThenElse)
+		ret = new IfThenElse(
+				capSubst(expr.condition, target, value),
+				capSubst(expr.ifTrue, target, value),
+				capSubst(expr.ifFalse, target, value)
+			);
+	else if (expr.binding == target)
+		ret = expr;
+	else
+		ret = new Abstraction(expr.binding, expr.type, capSubst(expr.body, target, value));
+	
+	return parse(tokenize(ret.toString()));
+}
+
+// TODO: target != true,false
+function subst(expr: AstNode, target: string, value: AstNode): AstNode {
+	let ret: AstNode;
+	if (expr instanceof Variable)
+		ret = expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		ret =  new Application(subst(expr.left, target, value), subst(expr.right, target, value));
+	else if (expr instanceof IfThenElse)
+		ret = new IfThenElse(
+				subst(expr.condition, target, value),
+				subst(expr.ifTrue, target, value),
+				subst(expr.ifFalse, target, value)
+			);
+	else if (expr.binding == target)
+		ret = expr;
+	else if (free(value).indexOf(expr.binding) == -1) {
+		ret = new Abstraction(expr.binding, expr.type, subst(expr.body, target, value));
+	} else {
+		const f = fresh(vars(expr));
+		const avoidantBody = capSubst(expr.body, expr.binding, new Variable(f, 0));
+		ret = new Abstraction(f, expr.type, subst(avoidantBody, target, value));
+	}
+
+	return parse(tokenize(ret.toString()));
+}
+
 /* Grammar:
 
 term ::= LAMBDA ID COLON type DOT term
@@ -413,11 +461,74 @@ function parse(tokens: Array<Token>): AstNode {
 	return new Parser(tokens).term();
 }
 
-type TypeContext = Map<AstNode, Type>;
+/* ====== Typeing ====== */
+
+type TypeContext = Map<string, Type>;
+
+function EmptyTypeContext(): TypeContext {
+	return new Map<string, Type>();
+}
+
+class TypeingError extends Error {
+	constructor(message?: string) {
+		super(message);
+	}
+}
+
+// TODO keep location data (for printing errors) somehow,
+// maybe keep links to tokens
+function typeOf(ast: AstNode, context: TypeContext): Type {
+	if (ast instanceof Variable) {
+		if (ast.value == "true" || ast.value == "false")
+			return new SimpleType("Bool");
+		
+		const ret = context.get(ast.value);
+		if (ret)
+			return ret;
+		throw new TypeingError(`${ast.value} cannot be typed`);
+	} else if (ast instanceof Abstraction) {
+		// deep clone
+		let newContext: TypeContext = new Map(context);
+		newContext.set(ast.binding, ast.type);
+		return new ArrowType(ast.type, typeOf(ast.body, newContext));
+	} else if (ast instanceof Application) {
+		const funcType = typeOf(ast.left, context);
+		const argType = typeOf(ast.right, context);
+		if (funcType instanceof ArrowType) {
+			if (typeEquals(argType, funcType.input))
+				return argType;
+			else
+				throw new TypeingError(`in ${ast}: ${ast.left} input type different than type of ${ast.right}`);
+		} else {
+			throw new TypeingError(`in ${ast}: ${ast.left} in not an arrow type`);
+		}
+
+	} else {
+		const condType = typeOf(ast.condition, context);
+		const ifTrueType = typeOf(ast.ifTrue, context);
+		const ifFalseType = typeOf(ast.ifFalse, context);
+		if (condType instanceof SimpleType && condType.value == "Bool") {
+			if (typeEquals(ifTrueType, ifFalseType))
+				return ifTrueType;
+			else
+				throw new TypeingError(`in ${ast}: branches ar of different types`);
+		} else {
+			throw new TypeingError(`in ${ast}: condition is not of type Bool`);
+		}
+	}
+}
+
+class ExecutionContext {
+
+}
 
 export {
+	AstNode, Type, EmptyTypeContext,
 	ParseError,
+	TypeingError,
 	tokenize,
 	parse,
-	astEquals
+	astEquals,
+	subst,
+	typeOf,
 }
