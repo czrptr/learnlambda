@@ -47,6 +47,10 @@ export class Parser<T extends Token> {
 		this.context = new Context();
 	}
 
+	protected get matchedTokenStart(): number {
+		return this.tokens[Math.max(0, this.index - 1)].start;
+	}
+
 	protected get done(): boolean {
 		return this.index >= this.tokens.length;
 	}
