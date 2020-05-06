@@ -491,7 +491,7 @@ class TypeingError extends Error {
 		const padding = " ".repeat(this.ast.tokStart);
 		if (this.ast.tokLength == 1)
 			return padding + "^";
-		return padding + "‾".repeat(this.ast.tokLength);
+		return padding + "~".repeat(this.ast.tokLength);
 	}
 }
 
@@ -516,7 +516,7 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 		const argType = typeOf(ast.right, context);
 		if (funcType instanceof ArrowType) {
 			if (typeEqual(argType, funcType.input))
-				return argType;
+				return funcType.output;
 			else
 				throw new TypeingError(ast, "input type different than type of argument");
 		} else {
@@ -616,12 +616,23 @@ function evalOnce(ast: AstNode): AstNode {
 }
 
 class ExecutionContext {
-	private aliases: Map<string, AstNode> = new Map();
+	private _aliases: Map<string, AstNode> = new Map();
+	private unaliases: Map<string, [string, string]> = new Map();
+	private typeContext = EmptyTypeContext();
+
+	get aliases(): [string, string, string][] {
+		let res: [string, string, string][] = [];
+		for (const [alias, [expr, exprType]] of this.unaliases)
+			res.push([alias, expr, exprType]);
+		return res;
+	}
 
 	addAlias(alias: string, expr: string): void {
+		const exprType = typeOf(parse(tokenize(expr)), this.typeContext);
+		this.typeContext.set(alias, exprType);
 		let ast = this.evaluate(expr);
 
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			if (astEqual(ast, value))
 				throw "DUPLICATE!";
 
@@ -630,12 +641,13 @@ class ExecutionContext {
 		if (ast instanceof Variable)
 			throw "VARIABLE!";
 		
-		this.aliases.set(alias, ast);
+		this._aliases.set(alias, ast);
+		this.unaliases.set(alias, [expr, exprType.toString()]);
 	}
 
 	forAlsOnce(expr: AstNode): AstNode {
 		let ret = expr;
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			ret = subst(ret, key, value);
 		return ret;
 	}
@@ -649,7 +661,7 @@ class ExecutionContext {
 	}
 
 	private bakAlsOnce(expr: AstNode): AstNode {
-		for (let [key, value] of this.aliases)
+		for (let [key, value] of this._aliases)
 			if (astEqual(expr, value))
 				return new Variable(key, 0);
 
@@ -680,6 +692,8 @@ class ExecutionContext {
 	evaluate(expr: string): AstNode {
 		let ast1 = parse(tokenize(expr));
 		ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
+
+		const _ = typeOf(ast1, EmptyTypeContext());
 
 		ast1 = evalOnce(ast1);
 		let ast2 = evalOnce(ast1);
