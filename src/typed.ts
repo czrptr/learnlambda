@@ -353,11 +353,15 @@ class Parser extends BaseParser<Token> {
 	private termParen = 0;
 	private typeParen = 0;
 
+	parse(): AstNode {
+		return this.term();
+	}
+
 	private isValidTypeName(typeName: string): boolean {
 		return typeName == "Bool";
 	}
 
-	type(): Type {
+	private type(): Type {
 		const inputType = this.atomType();
 		if (this.skipIs(Id.Arrow)) {
 			const outputType = this.type();
@@ -366,7 +370,7 @@ class Parser extends BaseParser<Token> {
 		return inputType;
 	}
 
-	atomType(): Type {
+	private atomType(): Type {
 		if (this.skipIs(Id.LeftPren)) {
 			this.typeParen += 1;
 			const type = this.type();
@@ -385,7 +389,7 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	term(): AstNode {
+	private term(): AstNode {
 		if (this.done)
 		this.raiseParseError("unexpected end of expression");
 		
@@ -414,7 +418,7 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	application(): AstNode {
+	private application(): AstNode {
 		let lhs = this.atom();
 
 		if (!lhs)
@@ -429,7 +433,7 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	atom(): AstNode | undefined {
+	private atom(): AstNode | undefined {
 		if (this.nextIs(Id.Dot))
 			this.raiseParseError("'λ' expected");
 		
@@ -464,7 +468,7 @@ class Parser extends BaseParser<Token> {
 }
 
 function parse(tokens: Token[]): AstNode {
-	return new Parser(tokens).term();
+	return new Parser(tokens).parse();
 }
 
 /* ====== Typeing ====== */
@@ -555,8 +559,6 @@ function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
 	else
 		ret = new Abstraction(expr.binding, expr.type, capSubst(expr.body, target, value));
 	
-	// TODO?: parse manually to detect renaming
-	return ret;
  	return parse(tokenize(ret.toString()));
 }
 
@@ -583,8 +585,6 @@ function subst(expr: AstNode, target: string, value: AstNode): AstNode {
 		ret = new Abstraction(f, expr.type, subst(avoidantBody, target, value));
 	}
 
-	// TODO: parse manually to detect renaming
-	return ret;
 	return parse(tokenize(ret.toString()));
 }
 
@@ -612,8 +612,6 @@ function evalOnce(ast: AstNode): AstNode {
 
 	let ret = (temp != undefined) ? temp : ast;
 	
-	// TODO: parse manually to detect renaming
-	return ret;
 	return parse(tokenize(ret.toString()))
 }
 
@@ -695,7 +693,21 @@ class ExecutionContext {
 
 	evaluateVerose(expr: string): string[] {
 		let result: string[] = [];
+
 		let ast1 = parse(tokenize(expr));
+		result.push(`λ> ${ast1}`);
+
+		ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
+		result.push(`≡> ${ast1}`);
+
+		let ast2 = evalOnce(ast1);
+		while (!astEqual(ast1, ast2)) {
+			result.push(`β> ${ast2}`);
+			[ast1, ast2] = [ast2, evalOnce(ast2)];
+		}
+
+		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
+		result.push(`≡> ${ast1}`);
 
 		return result;
 	}
