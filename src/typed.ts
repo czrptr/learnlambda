@@ -50,12 +50,12 @@ class Token implements BaseToken {
 type TokenizeFunction = BaseTokenizeFunction<Token>;
 
 function isSimply(id: Id): TokenizeFunction {
-	return (tokens: Array<Token>, expression: string, pos: number) => {
+	return (tokens: Token[], expression: string, pos: number) => {
 		tokens.push(new Token(id, pos, expression));
 	};
 }
 
-function isIdentifier(tokens: Array<Token>, expression: string, pos: number): void {
+function isIdentifier(tokens: Token[], expression: string, pos: number): void {
 	if (last(tokens) && last(tokens)!.id == Id.Variable) {
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
@@ -64,7 +64,7 @@ function isIdentifier(tokens: Array<Token>, expression: string, pos: number): vo
 	}
 }
 
-function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): void {
+function isNotIdStart(tokens: Token[], expression: string, pos: number): void {
 	if (last(tokens) && last(tokens)!.id == Id.Variable) {
 		const last = (tokens.pop())!;
 		tokens.push(new Token(last.id, last.start, last.value + expression))
@@ -73,7 +73,7 @@ function isNotIdStart(tokens: Array<Token>, expression: string, pos: number): vo
 	}
 }
 
-const rules: Array<[RegExp, TokenizeFunction]> = [
+const rules: [RegExp, TokenizeFunction][] = [
 	[/^\./, isSimply(Id.Dot)],
 	[/^:/, isSimply(Id.Colon)],
 	[/^,/, isSimply(Id.Comma)],
@@ -93,7 +93,7 @@ const rules: Array<[RegExp, TokenizeFunction]> = [
 	[/^[_0-9']+/, isNotIdStart]
 ];
 
-function tokenize(expression: string): Array<Token> {
+function tokenize(expression: string): Token[] {
 	return baseTokenize(expression, rules);
 }
 
@@ -235,7 +235,7 @@ function astEquals(n1: AstNode, n2: AstNode): boolean {
 	return false;
 }
 
-function vars(ast: AstNode): Array<string> {
+function vars(ast: AstNode): string[] {
 	const helper = (ast: AstNode) => {
 		if (ast instanceof Variable)
 			return [ast.value];
@@ -251,7 +251,7 @@ function vars(ast: AstNode): Array<string> {
 	return ret.filter((v, i) => ret.indexOf(v) == i);
 }
 
-function free(ast: AstNode): Array<string>  {
+function free(ast: AstNode): string[]  {
 	const helper = (ast: AstNode) => {
 		if (ast instanceof Variable)
 			return [ast.value];
@@ -267,60 +267,12 @@ function free(ast: AstNode): Array<string>  {
 	return ret.filter((v, i) => ret.indexOf(v) == i);
 }
 
-function fresh(used: Array<string>): string {
+function fresh(used: string[]): string {
 	let i = 0;
 	let f = `f${i}`;
 	while (used.indexOf(f) != -1)
 		f = `f${++i}`;
 	return f;
-}
-
-// TODO: target != true,false
-function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
-	let ret: AstNode;
-
-	if (expr instanceof Variable)
-		ret = expr.value == target ? value : expr;
-	else if (expr instanceof Application)
-		ret = new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
-	else if (expr instanceof IfThenElse)
-		ret = new IfThenElse(
-				capSubst(expr.condition, target, value),
-				capSubst(expr.ifTrue, target, value),
-				capSubst(expr.ifFalse, target, value)
-			);
-	else if (expr.binding == target)
-		ret = expr;
-	else
-		ret = new Abstraction(expr.binding, expr.type, capSubst(expr.body, target, value));
-	
-	return parse(tokenize(ret.toString()));
-}
-
-// TODO: target != true,false
-function subst(expr: AstNode, target: string, value: AstNode): AstNode {
-	let ret: AstNode;
-	if (expr instanceof Variable)
-		ret = expr.value == target ? value : expr;
-	else if (expr instanceof Application)
-		ret =  new Application(subst(expr.left, target, value), subst(expr.right, target, value));
-	else if (expr instanceof IfThenElse)
-		ret = new IfThenElse(
-				subst(expr.condition, target, value),
-				subst(expr.ifTrue, target, value),
-				subst(expr.ifFalse, target, value)
-			);
-	else if (expr.binding == target)
-		ret = expr;
-	else if (free(value).indexOf(expr.binding) == -1) {
-		ret = new Abstraction(expr.binding, expr.type, subst(expr.body, target, value));
-	} else {
-		const f = fresh(vars(expr));
-		const avoidantBody = capSubst(expr.body, expr.binding, new Variable(f, 0));
-		ret = new Abstraction(f, expr.type, subst(avoidantBody, target, value));
-	}
-
-	return parse(tokenize(ret.toString()));
 }
 
 /* Grammar:
@@ -457,7 +409,7 @@ class Parser extends BaseParser<Token> {
 	}
 }
 
-function parse(tokens: Array<Token>): AstNode {
+function parse(tokens: Token[]): AstNode {
 	return new Parser(tokens).term();
 }
 
@@ -518,12 +470,92 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 	}
 }
 
-class ExecutionContext {
+/* ====== Execution ====== */
 
+// TODO: target != true, false
+function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
+	let ret: AstNode;
+
+	if (expr instanceof Variable)
+		ret = expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		ret = new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
+	else if (expr instanceof IfThenElse)
+		ret = new IfThenElse(
+				capSubst(expr.condition, target, value),
+				capSubst(expr.ifTrue, target, value),
+				capSubst(expr.ifFalse, target, value)
+			);
+	else if (expr.binding == target)
+		ret = expr;
+	else
+		ret = new Abstraction(expr.binding, expr.type, capSubst(expr.body, target, value));
+	
+	// TODO?: parse manually to detect renaming
+	return parse(tokenize(ret.toString()));
 }
 
+// TODO: target != true, false
+function subst(expr: AstNode, target: string, value: AstNode): AstNode {
+	let ret: AstNode;
+	if (expr instanceof Variable)
+		ret = expr.value == target ? value : expr;
+	else if (expr instanceof Application)
+		ret =  new Application(subst(expr.left, target, value), subst(expr.right, target, value));
+	else if (expr instanceof IfThenElse)
+		ret = new IfThenElse(
+				subst(expr.condition, target, value),
+				subst(expr.ifTrue, target, value),
+				subst(expr.ifFalse, target, value)
+			);
+	else if (expr.binding == target)
+		ret = expr;
+	else if (free(value).indexOf(expr.binding) == -1) {
+		ret = new Abstraction(expr.binding, expr.type, subst(expr.body, target, value));
+	} else {
+		const f = fresh(vars(expr));
+		const avoidantBody = capSubst(expr.body, expr.binding, new Variable(f, 0));
+		ret = new Abstraction(f, expr.type, subst(avoidantBody, target, value));
+	}
+
+	// TODO: parse manually to detect renaming
+	return parse(tokenize(ret.toString()));
+}
+
+function evalOnce(ast: AstNode): AstNode {
+	let temp: AstNode | undefined = undefined;
+
+	if (ast instanceof Application) {
+		if (ast.left instanceof Abstraction)
+			temp = subst(ast.left.body, ast.left.binding, ast.right);
+		else
+			temp = new Application(evalOnce(ast.left), evalOnce(ast.right));
+	} else if (ast instanceof Abstraction) {
+		temp = new Abstraction(ast.binding, ast.type, evalOnce(ast.body));
+	} else if (ast instanceof IfThenElse) {
+		const cond = ast.condition;
+		if (cond instanceof Variable) {
+			if (cond.value == "true")
+				temp = ast.ifTrue;
+			else if (cond.value == "false")
+				temp = ast.ifFalse
+		} else {
+			temp = new IfThenElse(evalOnce(ast.condition), ast.ifTrue, ast.ifFalse);
+		}
+	}
+
+	let ret = (temp != undefined) ? temp : ast;
+	
+	// TODO: parse manually to detect renaming
+	return parse(tokenize(ret.toString()))
+}
+
+// class ExecutionContext {
+// 	private aliases: Map<string, AstNode> = new Map();
+// }
+
 export {
-	AstNode, Type, EmptyTypeContext,
+	AstNode, Type, EmptyTypeContext, evalOnce,
 	ParseError,
 	TypeingError,
 	tokenize,
