@@ -1,6 +1,7 @@
 import {
 	last,
-	ParseError
+	ParseError,
+	arrayEqual
 } from "./utils";
 
 /* ====== Tokenization ====== */
@@ -105,19 +106,35 @@ import {
 
 class SimpleType {
 	constructor(
-		public readonly value: string,
+		public readonly name: string,
+		public readonly tokStart: number = -1
 	) {}
 
+	get tokLength(): number {
+		return this.name.length;
+	}
+
 	toString(): string {
-		return this.value;
+		return this.name;
 	}
 }
 
 class ArrowType {
 	constructor(
 		public readonly input: Type,
-		public readonly output: Type,
+		public readonly output: Type
 	) {}
+
+	get tokStart(): number {
+		return this.input.tokStart;
+	}
+
+	get tokLength(): number {
+		let inputTokLength = this.input.tokLength;
+		if (!(this.input instanceof SimpleType))
+			inputTokLength += 2/*()*/;
+		return this.input.tokLength + 4/* -> */ + this.output.tokLength;
+	}
 
 	toString(): string {
 		const input = this.input instanceof SimpleType ? `${this.input}` : `(${this.input})`; 
@@ -138,26 +155,31 @@ class ArrowType {
 
 type Type = SimpleType | ArrowType; // | PairType;
 
-function typeEquals(t1: Type, t2: Type): boolean {
+function typeEqual(t1: Type, t2: Type): boolean {
 	if (t1 instanceof SimpleType && t2 instanceof SimpleType)
-		return t1.value == t2.value;
+		return t1.name == t2.name;
 	if (t1 instanceof ArrowType && t2 instanceof ArrowType)
-		return typeEquals(t1.input, t2.input) && typeEquals(t1.output, t2.output);
+		return typeEqual(t1.input, t2.input) && typeEqual(t1.output, t2.output);
 	return false;
 }
 
 class Variable {
 	constructor(
-		public readonly value: string,
-		public deBruijn: number
+		public readonly name: string,
+		public readonly deBruijn: number,
+		public readonly tokStart: number = -1
 	) {}
 
+	get tokLength(): number {
+		return this.name.length;
+	}
+
 	toString(): string {
-		return this.value;
+		return this.name;
 	}
 
 	toDeBruijnString(): string {
-		return (this.deBruijn != 0) ? `${this.deBruijn}` : this.value;
+		return (this.deBruijn != 0) ? `${this.deBruijn}` : this.name;
 	}
 }
 
@@ -165,8 +187,13 @@ class Abstraction {
 	constructor(
 		public readonly binding: string,
 		public readonly type: Type,
-		public readonly body: AstNode
+		public readonly body: AstNode,
+		public readonly tokStart: number = -1
 	) {}
+
+	get tokLength(): number {
+		return this.binding.length + this.type.tokLength + this.body.tokLength + 3/*λ:.*/;
+	}
 
 	toString(): string {
 		return `λ${this.binding}:${this.type}.${this.body}`;
@@ -183,16 +210,33 @@ class Application {
 		public readonly right: AstNode
 	) {}
 
+	get tokStart(): number {
+		return this.left.tokStart;
+	}
+
+	get tokLength(): number {
+		let leftTokLength = this.left.tokLength;
+		if (this.left instanceof Abstraction)
+			leftTokLength += 2/*()*/;
+
+		let rightTokLength = this.right.tokLength;
+		if (this.right instanceof Abstraction)
+			rightTokLength += 2/*()*/;
+
+		return leftTokLength + 1/* */ + rightTokLength; 
+	}
+
+	// TODO: IfThenElse cases
 	toString(): string {
-		const lString = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
-		const rString = this.right instanceof Variable ? `${this.right}` : `(${this.right})`;
-		return `${lString} ${rString}`;
+		const leftStr = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
+		const rightStr = this.right instanceof Variable ? `${this.right}` : `(${this.right})`;
+		return `${leftStr} ${rightStr}`;
 	}
 
 	toDeBruijnString(): string {
-		const lString = this.left instanceof Abstraction ? `(${this.left.toDeBruijnString()})` : `${this.left.toDeBruijnString()}`;
-		const rString = this.right instanceof Variable ? `${this.right.toDeBruijnString()}` : `(${this.right.toDeBruijnString()})`;
-		return `${lString} ${rString}`;
+		const leftStr = this.left instanceof Abstraction ? `(${this.left.toDeBruijnString()})` : `${this.left.toDeBruijnString()}`;
+		const rightStr = this.right instanceof Variable ? `${this.right.toDeBruijnString()}` : `(${this.right.toDeBruijnString()})`;
+		return `${leftStr} ${rightStr}`;
 	}
 }
 
@@ -200,8 +244,16 @@ class IfThenElse {
 	constructor (
 		public readonly condition: AstNode,
 		public readonly ifTrue: AstNode,
-		public readonly ifFalse: AstNode
+		public readonly ifFalse: AstNode,
+		public readonly tokStart: number = -1
 	) {}
+
+	get tokLength(): number {
+		function tokLength(ast: AstNode): number {
+			return ast instanceof Variable ? ast.tokLength : ast.tokLength + 2/*()*/;
+		};
+		return tokLength(this.condition) + tokLength(this.ifTrue) + tokLength(this.ifFalse) + 15/*if  then  else */;
+	}
 
 	toString(): string {
 		function toStr(ast: AstNode): string {
@@ -220,17 +272,17 @@ class IfThenElse {
 
 type AstNode = Variable | Abstraction | Application | IfThenElse;
 
-function astEquals(n1: AstNode, n2: AstNode): boolean {
+function astEqual(n1: AstNode, n2: AstNode): boolean {
 	if (n1 instanceof Variable && n2 instanceof Variable) {
 		if (n1.deBruijn == 0 && n2.deBruijn == 0)
-			return n1.value == n2.value;
+			return n1.name == n2.name;
 		return n1.deBruijn == n2.deBruijn;
 	}  else if (n1 instanceof Abstraction && n2 instanceof Abstraction) {
-		return typeEquals(n1.type, n2.type) && astEquals(n1.body, n2.body);
+		return typeEqual(n1.type, n2.type) && astEqual(n1.body, n2.body);
 	} else if (n1 instanceof Application && n2 instanceof Application) {
-		return astEquals(n1.left, n2.left) && astEquals(n1.right, n2.right);
+		return astEqual(n1.left, n2.left) && astEqual(n1.right, n2.right);
 	} else if (n1 instanceof IfThenElse && n2 instanceof IfThenElse) {
-		return astEquals(n1.condition, n2.condition) && astEquals(n1.ifTrue, n2.ifTrue) && astEquals(n1.ifFalse, n2.ifFalse);
+		return astEqual(n1.condition, n2.condition) && astEqual(n1.ifTrue, n2.ifTrue) && astEqual(n1.ifFalse, n2.ifFalse);
 	}
 	return false;
 }
@@ -238,7 +290,7 @@ function astEquals(n1: AstNode, n2: AstNode): boolean {
 function vars(ast: AstNode): string[] {
 	const helper = (ast: AstNode) => {
 		if (ast instanceof Variable)
-			return [ast.value];
+			return [ast.name];
 		else if (ast instanceof Application)
 			return [...vars(ast.left), ...vars(ast.right)];
 		else if (ast instanceof IfThenElse)
@@ -254,7 +306,7 @@ function vars(ast: AstNode): string[] {
 function free(ast: AstNode): string[]  {
 	const helper = (ast: AstNode) => {
 		if (ast instanceof Variable)
-			return [ast.value];
+			return [ast.name];
 		else if (ast instanceof Application)
 			return [...free(ast.left), ...free(ast.right)];
 		else if (ast instanceof IfThenElse)
@@ -297,13 +349,13 @@ atom ::= LEFTP term RIGHTP
 
 */
 
-function isValidTypeName(typeName: string): boolean {
-	return typeName == "Bool";
-}
-
 class Parser extends BaseParser<Token> {
 	private termParen = 0;
 	private typeParen = 0;
+
+	private isValidTypeName(typeName: string): boolean {
+		return typeName == "Bool";
+	}
 
 	type(): Type {
 		const inputType = this.atomType();
@@ -323,9 +375,9 @@ class Parser extends BaseParser<Token> {
 			return type;
 		} else if (this.nextIs(Id.Type)) {
 			const typeName = this.match(Id.Type);
-			if (!isValidTypeName(typeName))
+			if (!this.isValidTypeName(typeName))
 				this.raiseParseError("unknow type", -2)
-			return new SimpleType(typeName);
+			return new SimpleType(typeName, this.matchedTokenStart);
 		} else if (this.nextIs(Id.RightPren) && this.typeParen == 0) {
 			this.raiseParseError("unmatched ')'", -1);
 		} else {
@@ -338,6 +390,7 @@ class Parser extends BaseParser<Token> {
 		this.raiseParseError("unexpected end of expression");
 		
 		if (this.skipIs(Id.Lambda)) {
+			const lambdaTokStart = this.matchedTokenStart;
 			const id = this.match(Id.Variable, "λ-abstraction binding expected", -1);
 			this.match(Id.Colon, "':' expected", -1);
 			const type = this.type();
@@ -346,7 +399,7 @@ class Parser extends BaseParser<Token> {
 				this.context.push(id);
 				const body = this.term();
 				this.context.pop();
-				return new Abstraction(id, type, body);
+				return new Abstraction(id, type, body, lambdaTokStart);
 			} else { // double binding, need fresh
 				const newId = fresh(this.context.ids);
 				this.context.push(newId);
@@ -354,7 +407,7 @@ class Parser extends BaseParser<Token> {
 				const body = this.term();
 				this.context.pop();
 				this.context.removeSwap(id);
-				return new Abstraction(newId, type, body);
+				return new Abstraction(newId, type, body, lambdaTokStart);
 			}
 		} else {
 			return this.application();
@@ -389,18 +442,19 @@ class Parser extends BaseParser<Token> {
 		} else if (this.nextIs(Id.Variable)) {
 			let id = this.match(Id.Variable, "NOT POSSIBLE");
 			id = this.context.getSwap(id); // in case of double binding
-			return new Variable(id, this.context.indexOf(id));
+			return new Variable(id, this.context.indexOf(id), this.matchedTokenStart);
 		} else if (this.skipIs(Id.True)) {
-			return new Variable("true", 0);
+			return new Variable("true", 0, this.matchedTokenStart);
 		} else if (this.skipIs(Id.False)) {
-			return new Variable("false", 0);
+			return new Variable("false", 0, this.matchedTokenStart);
 		} else if (this.skipIs(Id.If)) {
+			const ifTokStart = this.matchedTokenStart;
 			const condition = this.term();
 			this.match(Id.Then, "'then' expected");
 			const ifTrue = this.term();
 			this.match(Id.Else, "'else' expected");
 			const ifFalse = this.term();
-			return new IfThenElse(condition, ifTrue, ifFalse);
+			return new IfThenElse(condition, ifTrue, ifFalse, ifTokStart);
 		} else if (this.nextIs(Id.RightPren) && this.termParen == 0) {
 			this.raiseParseError("unmatched ')'", -1);
 		} else {
@@ -422,8 +476,18 @@ function EmptyTypeContext(): TypeContext {
 }
 
 class TypeingError extends Error {
-	constructor(message?: string) {
+	constructor(
+		readonly ast: AstNode,
+		message?: string
+	) {
 		super(message);
+	}
+
+	get positionString(): string {
+		const padding = " ".repeat(this.ast.tokStart);
+		if (this.ast.tokLength == 1)
+			return padding + "^";
+		return padding + "‾".repeat(this.ast.tokLength);
 	}
 }
 
@@ -431,13 +495,13 @@ class TypeingError extends Error {
 // maybe keep links to tokens
 function typeOf(ast: AstNode, context: TypeContext): Type {
 	if (ast instanceof Variable) {
-		if (ast.value == "true" || ast.value == "false")
+		if (ast.name == "true" || ast.name == "false")
 			return new SimpleType("Bool");
 		
-		const ret = context.get(ast.value);
+		const ret = context.get(ast.name);
 		if (ret)
 			return ret;
-		throw new TypeingError(`${ast.value} cannot be typed`);
+		throw new TypeingError(ast, `${ast.name} cannot be typed`);
 	} else if (ast instanceof Abstraction) {
 		// deep clone
 		let newContext: TypeContext = new Map(context);
@@ -447,37 +511,37 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 		const funcType = typeOf(ast.left, context);
 		const argType = typeOf(ast.right, context);
 		if (funcType instanceof ArrowType) {
-			if (typeEquals(argType, funcType.input))
+			if (typeEqual(argType, funcType.input))
 				return argType;
 			else
-				throw new TypeingError(`in ${ast}: ${ast.left} input type different than type of ${ast.right}`);
+				throw new TypeingError(ast, "input type different than type of argument");
 		} else {
-			throw new TypeingError(`in ${ast}: ${ast.left} in not an arrow type`);
+			throw new TypeingError(ast, `${ast.left} in not an arrow type`);
 		}
 
 	} else {
 		const condType = typeOf(ast.condition, context);
 		const ifTrueType = typeOf(ast.ifTrue, context);
 		const ifFalseType = typeOf(ast.ifFalse, context);
-		if (condType instanceof SimpleType && condType.value == "Bool") {
-			if (typeEquals(ifTrueType, ifFalseType))
+		if (condType instanceof SimpleType && condType.name == "Bool") {
+			if (typeEqual(ifTrueType, ifFalseType))
 				return ifTrueType;
 			else
-				throw new TypeingError(`in ${ast}: branches ar of different types`);
+				throw new TypeingError(ast, "branches are of different types");
 		} else {
-			throw new TypeingError(`in ${ast}: condition is not of type Bool`);
+			throw new TypeingError(ast, "condition is not of type Bool");
 		}
 	}
 }
 
 /* ====== Execution ====== */
 
-// TODO: target != true, false
+// TODO?: target != true, false
 function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
 	let ret: AstNode;
 
 	if (expr instanceof Variable)
-		ret = expr.value == target ? value : expr;
+		ret = expr.name == target ? value : expr;
 	else if (expr instanceof Application)
 		ret = new Application(capSubst(expr.left, target, value), capSubst(expr.right, target, value));
 	else if (expr instanceof IfThenElse)
@@ -492,14 +556,15 @@ function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
 		ret = new Abstraction(expr.binding, expr.type, capSubst(expr.body, target, value));
 	
 	// TODO?: parse manually to detect renaming
-	return parse(tokenize(ret.toString()));
+	return ret;
+ 	return parse(tokenize(ret.toString()));
 }
 
-// TODO: target != true, false
+// TODO?: target != true, false
 function subst(expr: AstNode, target: string, value: AstNode): AstNode {
 	let ret: AstNode;
 	if (expr instanceof Variable)
-		ret = expr.value == target ? value : expr;
+		ret = expr.name == target ? value : expr;
 	else if (expr instanceof Application)
 		ret =  new Application(subst(expr.left, target, value), subst(expr.right, target, value));
 	else if (expr instanceof IfThenElse)
@@ -519,6 +584,7 @@ function subst(expr: AstNode, target: string, value: AstNode): AstNode {
 	}
 
 	// TODO: parse manually to detect renaming
+	return ret;
 	return parse(tokenize(ret.toString()));
 }
 
@@ -535,9 +601,9 @@ function evalOnce(ast: AstNode): AstNode {
 	} else if (ast instanceof IfThenElse) {
 		const cond = ast.condition;
 		if (cond instanceof Variable) {
-			if (cond.value == "true")
+			if (cond.name == "true")
 				temp = ast.ifTrue;
-			else if (cond.value == "false")
+			else if (cond.name == "false")
 				temp = ast.ifFalse
 		} else {
 			temp = new IfThenElse(evalOnce(ast.condition), ast.ifTrue, ast.ifFalse);
@@ -547,20 +613,101 @@ function evalOnce(ast: AstNode): AstNode {
 	let ret = (temp != undefined) ? temp : ast;
 	
 	// TODO: parse manually to detect renaming
+	return ret;
 	return parse(tokenize(ret.toString()))
 }
 
-// class ExecutionContext {
-// 	private aliases: Map<string, AstNode> = new Map();
-// }
+class ExecutionContext {
+	private aliases: Map<string, AstNode> = new Map();
+
+	addAlias(alias: string, expr: string): void {
+		let ast = this.evaluate(expr);
+
+		for (let [key, value] of this.aliases)
+			if (astEqual(ast, value))
+				throw "DUPLICATE!";
+
+		// TODO: expect true, false?
+		// or special error messages
+		if (ast instanceof Variable)
+			throw "VARIABLE!";
+		
+		this.aliases.set(alias, ast);
+	}
+
+	forAlsOnce(expr: AstNode): AstNode {
+		let ret = expr;
+		for (let [key, value] of this.aliases)
+			ret = subst(ret, key, value);
+		return ret;
+	}
+
+	forwardAlias(expr: AstNode): AstNode {
+		let alias1 = this.forAlsOnce(expr);
+		let alias2 = this.forAlsOnce(alias1);
+		while (!astEqual(alias1, alias2))
+			[alias1, alias2] = [alias2, this.forAlsOnce(alias2)];
+		return alias2;
+	}
+
+	private bakAlsOnce(expr: AstNode): AstNode {
+		for (let [key, value] of this.aliases)
+			if (astEqual(expr, value))
+				return new Variable(key, 0);
+
+		if (expr instanceof Application)
+			return new Application(this.bakAlsOnce(expr.left), this.bakAlsOnce(expr.right));
+
+		if (expr instanceof Abstraction)
+			return new Abstraction(expr.binding, expr.type, this.bakAlsOnce(expr.body));
+
+		if (expr instanceof IfThenElse)
+			return new IfThenElse(
+				this.bakAlsOnce(expr.condition),
+				this.bakAlsOnce(expr.ifTrue),
+				this.bakAlsOnce(expr.ifFalse)
+			);
+
+		return expr;
+	}
+
+	backwardAlias(expr: AstNode): AstNode {
+		let alias1 = this.bakAlsOnce(expr);
+		let alias2 = this.bakAlsOnce(alias1);
+		while (!astEqual(alias1, alias2))
+			[alias1, alias2] = [alias2, this.bakAlsOnce(alias2)];
+		return alias2;
+	}
+
+	evaluate(expr: string): AstNode {
+		let ast1 = parse(tokenize(expr));
+		ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
+
+		ast1 = evalOnce(ast1);
+		let ast2 = evalOnce(ast1);
+		while (!astEqual(ast1, ast2)) {
+			[ast1, ast2] = [ast2, evalOnce(ast2)];
+		}
+
+		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
+		return ast2;
+	}
+
+	evaluateVerose(expr: string): string[] {
+		let result: string[] = [];
+		let ast1 = parse(tokenize(expr));
+
+		return result;
+	}
+}
 
 export {
-	AstNode, Type, EmptyTypeContext, evalOnce,
+	AstNode, Type, EmptyTypeContext, evalOnce, ExecutionContext,
 	ParseError,
 	TypeingError,
 	tokenize,
 	parse,
-	astEquals,
+	astEqual,
 	subst,
 	typeOf,
 }
