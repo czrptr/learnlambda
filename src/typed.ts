@@ -22,11 +22,19 @@ enum Id {
 	RightPren,
 	// LeftSqrBr,
 	// RightSqrBr,
+	// Bool
 	If,
 	Then,
 	Else,
 	True,
 	False,
+	// Nat
+	Zero,
+	Succ,
+	Pred,
+	Plus,
+	Minus,
+	IsZero,
 	Type,
 	Variable
 }
@@ -89,6 +97,12 @@ const rules: [RegExp, TokenizeFunction][] = [
 	[/^else/, isSimply(Id.Else)],
 	[/^true/, isSimply(Id.True)],
 	[/^false/, isSimply(Id.False)],
+	[/^zero/, isSimply(Id.Zero)],
+	[/^succ/, isSimply(Id.Succ)],
+	[/^pred/, isSimply(Id.Pred)],
+	[/^plus/, isSimply(Id.Plus)],
+	[/^minus/, isSimply(Id.Minus)],
+	[/^iszero/, isSimply(Id.IsZero)],
 	[/^[A-Z][a-z]*/, isSimply(Id.Type)],
 	[/^[a-z][_0-9a-zA-Z']*/, isIdentifier],
 	[/^[_0-9']+/, isNotIdStart]
@@ -228,7 +242,7 @@ class Application {
 
 	// TODO: IfThenElse cases
 	toString(): string {
-		const leftStr = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
+		const leftStr = this.left instanceof Application ? `${this.left}` : `(${this.left})`;
 		const rightStr = this.right instanceof Variable ? `${this.right}` : `(${this.right})`;
 		return `${leftStr} ${rightStr}`;
 	}
@@ -270,7 +284,123 @@ class IfThenElse {
 	}
 }
 
-type AstNode = Variable | Abstraction | Application | IfThenElse;
+class Succ {
+	constructor (
+		public readonly argument: AstNode,
+		public readonly tokStart: number = -1
+	) {}
+
+	get tokLength(): number {
+		return this.argument.tokLength + 5/*succ */;
+	}
+
+	toString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument}` : `(${this.argument})`; 
+		return `succ ${argStr}`;
+	}
+
+	toDeBruijnString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument.toDeBruijnString()}` : `(${this.argument.toDeBruijnString()})`; 
+		return `succ ${argStr}`;
+	}
+}
+
+class Pred {
+	constructor (
+		public readonly argument: AstNode,
+		public readonly tokStart: number = -1
+	) {}
+
+	get tokLength(): number {
+		return this.argument.tokLength + 5/*pred */;
+	}
+
+	toString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument}` : `(${this.argument})`; 
+		return `pred ${argStr}`;
+	}
+
+	toDeBruijnString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument.toDeBruijnString()}` : `(${this.argument.toDeBruijnString()})`; 
+		return `pred ${argStr}`;
+	}
+}
+
+
+class Plus {
+	constructor (
+		public readonly argument1: AstNode,
+		public readonly argument2: AstNode,
+		public readonly tokStart: number = -1
+	) {}
+
+	get tokLength(): number {
+		return this.argument1.tokLength + this.argument2.tokLength + 6/*plus  */;
+	}
+
+	toString(): string {
+		function toStr(ast: AstNode): string {
+			return ast instanceof Variable ? `${ast}` : `(${ast})`;
+		};
+		return `plus ${toStr(this.argument1)} ${toStr(this.argument2)}`;
+	}
+
+	toDeBruijnString(): string {
+		function toStr(ast: AstNode): string {
+			return ast instanceof Variable ? `${ast.toDeBruijnString()}` : `(${ast.toDeBruijnString()})`;
+		};
+		return `plus ${toStr(this.argument1)} ${toStr(this.argument2)}`;
+	}
+}
+
+class Minus {
+	constructor (
+		public readonly argument1: AstNode,
+		public readonly argument2: AstNode,
+		public readonly tokStart: number = -1
+	) {}
+
+	get tokLength(): number {
+		return this.argument1.tokLength + this.argument2.tokLength + 7/*minus  */;
+	}
+
+	toString(): string {
+		function toStr(ast: AstNode): string {
+			return ast instanceof Variable ? `${ast}` : `(${ast})`;
+		};
+		return `minus ${toStr(this.argument1)} ${toStr(this.argument2)}`;
+	}
+
+	toDeBruijnString(): string {
+		function toStr(ast: AstNode): string {
+			return ast instanceof Variable ? `${ast.toDeBruijnString()}` : `(${ast.toDeBruijnString()})`;
+		};
+		return `minus ${toStr(this.argument1)} ${toStr(this.argument2)}`;
+	}
+}
+
+class IsZero {
+	constructor (
+		public readonly argument: AstNode,
+		public readonly tokStart: number = -1
+	) {}
+
+	get tokLength(): number {
+		return this.argument.tokLength + 7/*iszero */;
+	}
+
+	toString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument}` : `(${this.argument})`; 
+		return `iszero ${argStr}`;
+	}
+
+	toDeBruijnString(): string {
+		const argStr = this.argument instanceof Variable ? `${this.argument.toDeBruijnString()}` : `(${this.argument.toDeBruijnString()})`; 
+		return `iszero ${argStr}`;
+	}
+}
+
+type AstNode = Variable | Abstraction | Application | IfThenElse | Succ | Pred | Plus | Minus | IsZero;
 
 function astEqual(n1: AstNode, n2: AstNode): boolean {
 	if (n1 instanceof Variable && n2 instanceof Variable) {
@@ -283,6 +413,16 @@ function astEqual(n1: AstNode, n2: AstNode): boolean {
 		return astEqual(n1.left, n2.left) && astEqual(n1.right, n2.right);
 	} else if (n1 instanceof IfThenElse && n2 instanceof IfThenElse) {
 		return astEqual(n1.condition, n2.condition) && astEqual(n1.ifTrue, n2.ifTrue) && astEqual(n1.ifFalse, n2.ifFalse);
+	} else if (n1 instanceof Succ && n2 instanceof Succ) {
+		return astEqual(n1.argument, n2.argument);
+	} else if (n1 instanceof Pred && n2 instanceof Pred) {
+		return astEqual(n1.argument, n2.argument);
+	} else if (n1 instanceof Plus && n2 instanceof Plus) {
+		return astEqual(n1.argument1, n2.argument1) && astEqual(n1.argument2, n2.argument2);
+	} else if (n1 instanceof Minus && n2 instanceof Minus) {
+		return astEqual(n1.argument1, n2.argument1) && astEqual(n1.argument2, n2.argument2);
+	} else if (n1 instanceof IsZero && n2 instanceof IsZero) {
+		return astEqual(n1.argument, n2.argument);
 	}
 	return false;
 }
@@ -295,6 +435,16 @@ function vars(ast: AstNode): string[] {
 			return [...vars(ast.left), ...vars(ast.right)];
 		else if (ast instanceof IfThenElse)
 			return [...vars(ast.condition), ...vars(ast.ifTrue), ...vars(ast.ifFalse)];
+		else if (ast instanceof Succ)
+			return vars(ast.argument);
+		else if (ast instanceof Pred)
+			return vars(ast.argument);
+		else if (ast instanceof Plus)
+			return [...vars(ast.argument1), ...vars(ast.argument2)];
+		else if (ast instanceof Minus)
+			return [...vars(ast.argument1), ...vars(ast.argument2)];
+		else if (ast instanceof IsZero)
+			return vars(ast.argument);
 		else
 			return [ast.binding, ...vars(ast.body)];
 	};
@@ -311,6 +461,16 @@ function free(ast: AstNode): string[]  {
 			return [...free(ast.left), ...free(ast.right)];
 		else if (ast instanceof IfThenElse)
 			return [...free(ast.condition), ...free(ast.ifTrue), ...free(ast.ifFalse)];
+		else if (ast instanceof Succ)
+			return free(ast.argument);
+		else if (ast instanceof Pred)
+			return free(ast.argument)
+		else if (ast instanceof Plus)
+			return [...free(ast.argument1), ...free(ast.argument2)];
+		else if (ast instanceof Minus)
+			return [...free(ast.argument1), ...free(ast.argument2)];
+		else if (ast instanceof IsZero)
+			return free(ast.argument);
 		else
 			return [...free(ast.body)].filter(el => el != ast.binding);
 	};
@@ -358,7 +518,7 @@ class Parser extends BaseParser<Token> {
 	}
 
 	private isValidTypeName(typeName: string): boolean {
-		return typeName == "Bool";
+		return typeName == "Bool" || typeName == "Nat";
 	}
 
 	private type(): Type {
@@ -389,7 +549,7 @@ class Parser extends BaseParser<Token> {
 		}
 	}
 
-	private term(): AstNode {
+	private term(greedy: boolean = true): AstNode {
 		if (this.done)
 		this.raiseParseError("unexpected end of expression");
 		
@@ -414,15 +574,18 @@ class Parser extends BaseParser<Token> {
 				return new Abstraction(newId, type, body, lambdaTokStart);
 			}
 		} else {
-			return this.application();
+			return this.application(greedy);
 		}
 	}
 
-	private application(): AstNode {
+	private application(greedy: boolean = true): AstNode {
 		let lhs = this.atom();
 
 		if (!lhs)
 			this.raiseParseError("λ-term expected");
+
+		if (!greedy)
+			return lhs;
 
 		while (true) {
 			const rhs = this.atom();
@@ -459,6 +622,23 @@ class Parser extends BaseParser<Token> {
 			this.match(Id.Else, "'else' expected");
 			const ifFalse = this.term();
 			return new IfThenElse(condition, ifTrue, ifFalse, ifTokStart);
+		} else if (this.skipIs(Id.Zero)) {
+			return new Variable("zero", 0, this.matchedTokenStart);
+		} else if (this.skipIs(Id.Succ)) {
+			const succTokStart = this.matchedTokenStart;
+			return new Succ(this.term(false), succTokStart);
+		} else if (this.skipIs(Id.Pred)) {
+			const predTokStart = this.matchedTokenStart;
+			return new Pred(this.term(false), predTokStart);
+		} else if (this.skipIs(Id.Plus)) {
+			const plusTokStart = this.matchedTokenStart;
+			return new Plus(this.term(false), this.term(false), plusTokStart);
+		} else if (this.skipIs(Id.Minus)) {
+			const minusTokStart = this.matchedTokenStart;
+			return new Minus(this.term(false), this.term(false), minusTokStart);
+		} else if (this.skipIs(Id.IsZero)) {
+			const isZeroTokStart = this.matchedTokenStart;
+			return new IsZero(this.term(false), isZeroTokStart);
 		} else if (this.nextIs(Id.RightPren) && this.termParen == 0) {
 			this.raiseParseError("unmatched ')'", -1);
 		} else {
@@ -501,7 +681,8 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 	if (ast instanceof Variable) {
 		if (ast.name == "true" || ast.name == "false")
 			return new SimpleType("Bool");
-		
+		if (ast.name == "zero")
+			return new SimpleType("Nat");
 		const ret = context.get(ast.name);
 		if (ret)
 			return ret;
@@ -522,8 +703,7 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 		} else {
 			throw new TypeingError(ast, `${ast.left} in not an arrow type`);
 		}
-
-	} else {
+	} else if (ast instanceof IfThenElse) {
 		const condType = typeOf(ast.condition, context);
 		const ifTrueType = typeOf(ast.ifTrue, context);
 		const ifFalseType = typeOf(ast.ifFalse, context);
@@ -535,6 +715,37 @@ function typeOf(ast: AstNode, context: TypeContext): Type {
 		} else {
 			throw new TypeingError(ast, "condition is not of type Bool");
 		}
+	} else if (ast instanceof Succ) {
+		const argType = typeOf(ast.argument, context);
+		if (argType instanceof SimpleType && argType.name == "Nat")
+			return new SimpleType("Nat");
+		throw new TypeingError(ast, "argument is not of type Nat");
+	} else if (ast instanceof Pred) {
+		const argType = typeOf(ast.argument, context);
+		if (argType instanceof SimpleType && argType.name == "Nat")
+			return new SimpleType("Nat");
+		throw new TypeingError(ast, "argument is not of type Nat");
+	} else if (ast instanceof Plus) {
+		const arg1Type = typeOf(ast.argument1, context);
+		const arg2Type = typeOf(ast.argument1, context);
+		if (!(arg1Type instanceof SimpleType && arg1Type.name == "Nat"))
+			throw new TypeingError(ast, "first arguments is not of type Nat");
+		if (!(arg2Type instanceof SimpleType && arg2Type.name == "Nat"))
+			throw new TypeingError(ast, "second arguments is not of type Nat");
+		return new SimpleType("Nat");
+	} else if (ast instanceof Minus) {
+		const arg1Type = typeOf(ast.argument1, context);
+		const arg2Type = typeOf(ast.argument1, context);
+		if (!(arg1Type instanceof SimpleType && arg1Type.name == "Nat"))
+			throw new TypeingError(ast, "first arguments is not of type Nat");
+		if (!(arg2Type instanceof SimpleType && arg2Type.name == "Nat"))
+			throw new TypeingError(ast, "second arguments is not of type Nat");
+		return new SimpleType("Nat");
+	} else {
+		const argType = typeOf(ast.argument, context);
+		if (argType instanceof SimpleType && argType.name == "Nat")
+			return new SimpleType("Bool");
+		throw new TypeingError(ast, "argument is not of type Nat");
 	}
 }
 
@@ -554,6 +765,16 @@ function capSubst(expr: AstNode, target: string, value: AstNode): AstNode {
 				capSubst(expr.ifTrue, target, value),
 				capSubst(expr.ifFalse, target, value)
 			);
+	else if (expr instanceof Succ)
+		ret = new Succ(capSubst(expr.argument, target, value));
+	else if (expr instanceof Pred)
+		ret = new Pred(capSubst(expr.argument, target, value));
+	else if (expr instanceof Plus)
+		ret = new Plus(capSubst(expr.argument1, target, value), capSubst(expr.argument2, target, value));
+	else if (expr instanceof Minus)
+		ret = new Minus(capSubst(expr.argument1, target, value), capSubst(expr.argument2, target, value));
+	else if (expr instanceof IsZero)
+		ret = new IsZero(capSubst(expr.argument, target, value));
 	else if (expr.binding == target)
 		ret = expr;
 	else
@@ -575,6 +796,16 @@ function subst(expr: AstNode, target: string, value: AstNode): AstNode {
 				subst(expr.ifTrue, target, value),
 				subst(expr.ifFalse, target, value)
 			);
+	else if (expr instanceof Succ)
+		ret = new Succ(subst(expr.argument, target, value));
+	else if (expr instanceof Pred)
+		ret = new Pred(subst(expr.argument, target, value));
+	else if (expr instanceof Plus)
+		ret = new Plus(subst(expr.argument1, target, value), subst(expr.argument2, target, value));
+	else if (expr instanceof Minus)
+		ret = new Minus(subst(expr.argument1, target, value), subst(expr.argument2, target, value));
+	else if (expr instanceof IsZero)
+		ret = new IsZero(subst(expr.argument, target, value));
 	else if (expr.binding == target)
 		ret = expr;
 	else if (free(value).indexOf(expr.binding) == -1) {
@@ -608,6 +839,50 @@ function evalOnce(ast: AstNode): AstNode {
 		} else {
 			temp = new IfThenElse(evalOnce(ast.condition), ast.ifTrue, ast.ifFalse);
 		}
+	} else if (ast instanceof Succ) {
+		temp = new Succ(evalOnce(ast.argument));
+	} else if (ast instanceof Pred) {
+		if (ast.argument instanceof Succ)
+			temp = ast.argument.argument;
+		else if (ast.argument instanceof Variable && ast.argument.name == "zero")
+			throw "!!! PRED ZERO";
+		else 
+			temp = new Pred(evalOnce(ast.argument));
+	} else if (ast instanceof Plus) {
+		if (ast.argument2 instanceof Succ) {
+			temp = ast;
+			let arg2 = temp.argument2;
+			while (arg2 instanceof Succ) {
+				temp = new Plus(new Succ(temp.argument1), arg2.argument);
+				arg2 = arg2.argument;
+			}
+			temp = temp.argument1;
+		} else if (ast.argument2 instanceof Variable && ast.argument2.name == "zero") {
+			temp = ast.argument1;
+		} else {
+			temp = new Plus(evalOnce(ast.argument1), evalOnce(ast.argument2));
+		}
+	} else if (ast instanceof Minus) {
+		if (ast.argument2 instanceof Succ) {
+			temp = ast;
+			let arg2 = temp.argument2;
+			while (arg2 instanceof Succ) {
+				temp = new Minus(new Pred(temp.argument1), arg2.argument);
+				arg2 = arg2.argument;
+			}
+			temp = temp.argument1;
+		} else if (ast.argument2 instanceof Variable && ast.argument2.name == "zero") {
+			temp = ast.argument1;
+		} else {
+			temp = new Minus(evalOnce(ast.argument1), evalOnce(ast.argument2));
+		}
+	} else if (ast instanceof IsZero) {
+		if (ast.argument instanceof Succ)
+			temp = new Variable("false", 0);
+		else if (ast.argument instanceof Variable && ast.argument.name == "zero")
+			temp = new Variable("true", 0);
+		else
+			temp = new IsZero(evalOnce(ast.argument));
 	}
 
 	let ret = (temp != undefined) ? temp : ast;
