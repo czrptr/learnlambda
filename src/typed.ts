@@ -517,6 +517,10 @@ class Parser extends BaseParser<Token> {
 		return this.term();
 	}
 
+	parseType(): Type {
+		return this.type();
+	}
+
 	private isValidTypeName(typeName: string): boolean {
 		return typeName == "Bool" || typeName == "Nat";
 	}
@@ -649,6 +653,10 @@ class Parser extends BaseParser<Token> {
 
 function parse(tokens: Token[]): AstNode {
 	return new Parser(tokens).parse();
+}
+
+function parseType(tokens: Token[]): Type {
+	return new Parser(tokens).parseType();
 }
 
 /* ====== Typeing ====== */
@@ -920,6 +928,27 @@ class ExecutionContext {
 		this.unaliases.set(alias, [expr, exprType.toString()]);
 	}
 
+	addAliasWithType(alias: string, type: string, expr: string) {
+		let typeContext = new Map(this.typeContext);
+		typeContext.set(alias, parseType(tokenize(type)));
+		
+		const exprType = typeOf(parse(tokenize(expr)), typeContext);
+		this.typeContext = typeContext;
+		let ast = this.evaluate(expr);
+
+		for (let [key, value] of this._aliases)
+			if (astEqual(ast, value))
+				throw "DUPLICATE!";
+
+		// TODO: expect true, false?
+		// or special error messages
+		if (ast instanceof Variable)
+			throw "VARIABLE!";
+		
+		this._aliases.set(alias, ast);
+		this.unaliases.set(alias, [expr, exprType.toString()]);
+	}
+
 	forAlsOnce(expr: AstNode): AstNode {
 		let ret = expr;
 		for (let [key, value] of this._aliases)
@@ -966,16 +995,16 @@ class ExecutionContext {
 
 	evaluate(expr: string): AstNode {
 		let ast1 = parse(tokenize(expr));
-		ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
-
-		const _ = typeOf(ast1, EmptyTypeContext());
+		ast1 = parse(tokenize(this.forAlsOnce(ast1).toString()));
 
 		ast1 = evalOnce(ast1);
 		let ast2 = evalOnce(ast1);
 		while (!astEqual(ast1, ast2)) {
-			[ast1, ast2] = [ast2, evalOnce(ast2)];
+			while (!astEqual(ast1, ast2)) {
+				[ast1, ast2] = [ast2, evalOnce(ast2)];
+			}
+			[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast1).toString()))];
 		}
-
 		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
 		return ast2;
 	}
