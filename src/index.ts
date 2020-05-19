@@ -166,6 +166,10 @@ input.on("beforeChange", (sender, change) => {
 			} catch (e) {
 				if (e instanceof ParseError)
 					appendHistory("ε> " + term + "\n   " + e.positionString + "\n" + e.message);
+				else if (e == "IDENTIFIER")
+					appendHistory("ε> cannot alias a free variable");
+				else if (e == "DUPLICATE")
+					appendHistory("ε> the term being aliased already exists in the context");
 			}
 
 			sender.setValue("");
