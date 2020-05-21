@@ -23,14 +23,14 @@
 			<h1>Instructions</h1>
 			<ul>
 				<li>evaluate λ-expressions (see <a href="#grammar">grammer</a>)</li>
-				<li>add λ-terms to context (id = &lt;term&gt;)</li>
+				<li>add λ-terms to context (&lt;id&gt; [:t &lt;type&gt;] = &lt;term&gt;)</li>
 				<li>remove λ-terms from context (del &lt;id&gt;)</li>
 			</ul>
 		</section>
 		<section id="options">
 			<h1>Options:</h1>
-			<input type="checkbox" id="check-mode" name="check-mode">
-			<label for="check-mode">Verbose</label><br>
+			<input type="checkbox" id="check-mode" name="check-mode" disabled>
+			<label for="check-mode" style="color: grey;">Verbose</label><br>
 		</section>
 		<div id="terminal">
 			<textarea id="history"></textarea>
@@ -41,8 +41,14 @@
 			<h1 id="grammer">Grammar rules</h1>
 			<ul>
 				<li>any identifier is a λ-term</li>
-				<li>given identifier x and a λ-term t, λx.t is a λ-term</li>
-				<li>given t1 and t2 two λ-terms, (t1 t2) is a λ-term</li>
+				<li>true and false are λ-term of type Bool</li>
+				<li>zero is a λ-term of type Nat</li>
+				<li>given identifier x and a λ-term t: λx:Type.t is a λ-term</li>
+				<li>given two λ-terms: t1 of type A -> B and t2 of type A: (t1 t2) is a λ-term of type B</li>
+				<li>given cond of type Bool and t1, t2 λ-terms of the same type: if cond then t1 else t2 is a λ-term</li>
+				<li>given t of type Nat: succ t, pred t, iszero t are λ-terms</li>
+				<li>given t1 and t2, both of type Nat: plus t1 t2, minus t1 t2 are λ-terms</li>
+
 			</ul>
 			<br>
 			<h1>Features</h1>

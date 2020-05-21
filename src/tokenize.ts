@@ -9,6 +9,9 @@ export interface Token {
 export type TokenizeFunction<T extends Token> = (tokens: Array<T>, expression: string, pos: number) => void;
 
 export function tokenize<T extends Token>(expression: string, rules: Array<[RegExp, TokenizeFunction<T>]>): Array<T> {
+	// remove superfluous whitespace
+	expression = expression.replace(/(\t|\n)/g, " ").replace(/\ {2,}/g, " ").trim();
+	
 	const separator = /^\s+/;
 
 	let result: Array<T> = [];

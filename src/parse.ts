@@ -47,6 +47,10 @@ export class Parser<T extends Token> {
 		this.context = new Context();
 	}
 
+	protected get matchedTokenStart(): number {
+		return this.tokens[Math.max(0, this.index - 1)].start;
+	}
+
 	protected get done(): boolean {
 		return this.index >= this.tokens.length;
 	}
@@ -67,7 +71,7 @@ export class Parser<T extends Token> {
 		return false;
 	}
 
-	match(id: any, error: string, tokenOffset: number = 0): string {
+	match(id: any, error: string = "NOT POSSIBLE", tokenOffset: number = 0): string {
 		if (this.nextIs(id)) {
 			this.index += 1;
 			return this.tokens[this.index - 1].value;

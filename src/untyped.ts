@@ -358,6 +358,7 @@ class ExecutionContext {
 		return res;
 	}
 
+	// TODO: treat these in the interface
 	addAlias(alias: string, expr: string): void {
 		let ast = parse(tokenize(expr));
 		expr = ast.toString();
@@ -366,10 +367,10 @@ class ExecutionContext {
 
 		for (let [key, value] of this.aliases)
 			if (equals(ast, value))
-				throw "DUPLICATE!";
+				throw "DUPLICATE";
 
 		if (ast instanceof Identifier)
-			throw "IDENTIFIER!";
+			throw "IDENTIFIER";
 		
 		this.aliases.set(alias, ast);
 		this.unaliases.set(alias, expr);

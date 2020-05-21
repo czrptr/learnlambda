@@ -2,7 +2,7 @@
 
 dist
 src/run.ts
-!dist/bundle.js
+!dist/*bundle.js
 
 ## VSCode ignore files
 ## Get latest from https://github.com/github/gitignore/blob/master/Global/VisualStudioCode.gitignore
