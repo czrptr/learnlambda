@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="css/lib.codemirror.css"/>
+	<link rel="stylesheet" href="css/index.css"/>
+	<script type="module" src="dist/bundle.js" defer></script>
+	<title>Learn λ</title>
+</head>
+<body>
+	<header>
+		<!-- put cool animate logo here -->
+		<h1>λ Calculus Interpreter</h1>
+		<nav>
+			<!-- put these in a list -->
+			<a href="#editor">Editor</a>
+			<a href="#features">Features</a>
+		</nav>
+	</header>
+	<main>
+		<section id="instructions">
+			<h1>Instructions</h1>
+			<ul>
+				<li>evaluate λ-expressions (see <a href="#grammar">grammer</a>)</li>
+				<li>add λ-terms to context (&lt;id&gt; [:t &lt;type&gt;] = &lt;term&gt;)</li>
+				<li>remove λ-terms from context (del &lt;id&gt;)</li>
+			</ul>
+		</section>
+		<section id="options">
+			<h1>Options:</h1>
+			<input type="checkbox" id="check-mode" name="check-mode" disabled>
+			<label for="check-mode" style="color: grey;">Verbose</label><br>
+		</section>
+		<div id="terminal">
+			<textarea id="history"></textarea>
+			<textarea id="input"></textarea>
+		</div>
+		<textarea id="context"></textarea>
+		<section id="features">
+			<h1 id="grammer">Grammar rules</h1>
+			<ul>
+				<li>any identifier is a λ-term</li>
+				<li>true and false are λ-term of type Bool</li>
+				<li>zero is a λ-term of type Nat</li>
+				<li>given identifier x and a λ-term t: λx:Type.t is a λ-term</li>
+				<li>given two λ-terms: t1 of type A -> B and t2 of type A: (t1 t2) is a λ-term of type B</li>
+				<li>given cond of type Bool and t1, t2 λ-terms of the same type: if cond then t1 else t2 is a λ-term</li>
+				<li>given t of type Nat: succ t, pred t, iszero t are λ-terms</li>
+				<li>given t1 and t2, both of type Nat: plus t1 t2, minus t1 t2 are λ-terms</li>
+
+			</ul>
+			<br>
+			<h1>Features</h1>
+			<ul>
+				<li>type "\" to get "λ"</li>
+				<li>enable Verbouse option to see the step-by-step evaluation</li>
+				<li>"clear" to clear the terminal</li>
+				<li>Up/Down to navigate previous commands</li>
+			</ul>
+		</section>
+	</main>
+	<footer>
+		<p>© <a href="https://github.com/czrptr">Cezar Petriuc</a>, Faculty of Computer Science, „Alexandru Ioan Cuza" University of Iași.</p>
+	</footer>
+</body>
+</html>

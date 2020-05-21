@@ -28,6 +28,15 @@
 	color: #ffffff;
 }
 
+.cm-colon {
+	color: #ffffff;
+}
+
+
+.cm-datatype {
+	color: #4ec9b0;
+}
+
 .cm-identifier {
 	color: var(--identifier-color);
 }

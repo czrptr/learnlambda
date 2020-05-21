@@ -6,7 +6,7 @@ import CodeMirror, {
 	Pos
 } from "codemirror";
 
-import "./cm/typed";
+import "./cm/untyped";
 
 function initCodeMirror(
 	elementId: string,
@@ -70,9 +70,8 @@ function appendHistory(text: string): void {
 
 import {
 	ParseError,
-	ExecutionContext,
-	TypeingError
-} from "./typed";
+	ExecutionContext
+} from "./untyped";
 
 function refreshContext(): void {
 	let display = "Context\n\n";
@@ -84,7 +83,7 @@ function refreshContext(): void {
 }
 
 function strip(str: string): string {
-	const accept = /[^λ.:()_0-9'a-zA-Z =\->]/g;
+	const accept = /[^λ.()_0-9'a-zA-Z =]/g;
 	return str.replace(accept, "");
 }
 
@@ -95,14 +94,26 @@ function verboseMode(): boolean {
 	return checkModeElement.checked;
 }
 
-exeContext.addAlias("not", "λx:Bool.if x then false else true");
-exeContext.addAlias("or", "λx:Bool.λy:Bool.if x then true else y");
-exeContext.addAlias("and", "λx:Bool.λy:Bool.if x then y else false");
-exeContext.addAlias("xor", "λx:Bool.λy:Bool.and (or x y) (or (not x) (not y))");
-exeContext.addAlias("leq", "λx:Nat.λy:Nat.iszero (minus x y)");
-exeContext.addAlias("eq", "λx:Nat.λy:Nat.and (leq x y) (leq y x)");
-exeContext.addAliasWithType("sumTo", "Nat -> Nat", "λx:Nat.if (eq x zero) then zero else (plus x (sumTo (pred x)))");
+exeContext.addAlias("true", "λx.λy.x");
+exeContext.addAlias("false", "λx.λy.y");
+exeContext.addAlias("not", "λp.p false true");
+exeContext.addAlias("and", "λp.λq.p q p");
+exeContext.addAlias("or", "λp.λq.p p q");
 
+// exeContext.addAlias("zero", "λf.λx.x");
+exeContext.addAlias("succ", "λn.λf.λx.f (n f x)");
+exeContext.addAlias("plus", "λm.λn.m succ n");
+exeContext.addAlias("pow", "λb.λe.e b");
+exeContext.addAlias("one", "succ false");
+exeContext.addAlias("two", "succ one");
+exeContext.addAlias("three", "succ two");
+exeContext.addAlias("four", "succ three");
+exeContext.addAlias("five", "succ four");
+exeContext.addAlias("six", "succ five");
+exeContext.addAlias("seven", "succ six");
+exeContext.addAlias("eight", "succ seven");
+exeContext.addAlias("nine", "succ eight");
+exeContext.addAlias("ten", "succ nine");
 
 refreshContext();
 
@@ -117,8 +128,7 @@ input.on("beforeChange", (sender, change) => {
 
 	// console.log(change);
 
-	const delInstr = /del\s([a-z][_0-9'a-z]*)/i;
-	const addWithTypeInstr = /([a-z][_0-9'a-zA-Z]*)\s+:t\s+(.+)=\s+(.+)/;
+	const delInstr = /del\s([a-z][_0-9'a-z]*)/i;	
 
 	// enter was pressed
 	if (change.text.length == 2 && change.text[0] == "" && change.text[1] == "") {
@@ -131,36 +141,6 @@ input.on("beforeChange", (sender, change) => {
 			sender.setValue("");
 			historyElement.style.height = "0";
 			return;
-		}
-
-		// add command with type
-		let match = expr.match(addWithTypeInstr);
-		let term = "";
-		if (match) {
-			try {
-				const id = match[1];
-				const type = match[2];
-				term = match[3];
-				exeContext.addAliasWithType(id, type, term);
-				refreshContext();
-				appendHistory("c> " + id + " :t " + type + " → " + term + " added to context");
-			} catch (e) {
-				if (e instanceof ParseError || e instanceof TypeingError)
-					appendHistory("ε> " + term + "\n   " + e.positionString + "\n" + e.message);
-				else if (e == "IDENTIFIER")
-					appendHistory("ε> cannot alias a free variable");
-				else if (e == "DUPLICATE")
-					appendHistory("ε> the term being aliased already exists in the context");
-			}
-
-			sender.setValue("");
-			setStyle();
-
-			inputHistory.push(expr);
-			inputHistoryIndex = inputHistory.length;
-			return;
-		} else {
-			console.log("AAH");
 		}
 
 		// add command
@@ -184,7 +164,7 @@ input.on("beforeChange", (sender, change) => {
 				refreshContext();
 				appendHistory("c> " + id + " → " + term + " added to context");
 			} catch (e) {
-				if (e instanceof ParseError || e instanceof TypeingError)
+				if (e instanceof ParseError)
 					appendHistory("ε> " + term + "\n   " + e.positionString + "\n" + e.message);
 				else if (e == "IDENTIFIER")
 					appendHistory("ε> cannot alias a free variable");
@@ -199,9 +179,9 @@ input.on("beforeChange", (sender, change) => {
 			inputHistoryIndex = inputHistory.length;
 			return;
 		}
-		
+
 		// del command
-		match = expr.match(delInstr);
+		let match = expr.match(delInstr);
 		if (match) {
 			console.log(match[1]);
 			if (exeContext.removeAlias(match[1])) {
@@ -220,13 +200,18 @@ input.on("beforeChange", (sender, change) => {
 
 		// eval command
 		try {
-			const result = exeContext.evaluate(expr);
-			appendHistory("λ> " + result);
-		} catch (e) {
-			if (e instanceof ParseError || e instanceof TypeingError) {
-				appendHistory("ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
+			if (verboseMode()) {
+				const result = exeContext.verboseEvaluate(expr);
+				for (const [type, expr] of result) {
+					appendHistory(type + " " + expr);
+				}
 			} else {
-				appendHistory("ε> " + e);
+				const result = exeContext.evaluate(expr);
+				appendHistory("λ> " + result);
+			}
+		} catch (e) {
+			if (e instanceof ParseError) {
+				appendHistory("ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
 			}
 		}
 		sender.setValue("");

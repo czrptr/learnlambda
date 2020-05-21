@@ -242,7 +242,7 @@ class Application {
 
 	// TODO: IfThenElse cases
 	toString(): string {
-		const leftStr = this.left instanceof Application ? `${this.left}` : `(${this.left})`;
+		const leftStr = this.left instanceof Abstraction ? `(${this.left})` : `${this.left}`;
 		const rightStr = this.right instanceof Variable ? `${this.right}` : `(${this.right})`;
 		return `${leftStr} ${rightStr}`;
 	}
@@ -853,7 +853,7 @@ function evalOnce(ast: AstNode): AstNode {
 		if (ast.argument instanceof Succ)
 			temp = ast.argument.argument;
 		else if (ast.argument instanceof Variable && ast.argument.name == "zero")
-			throw "!!! PRED ZERO";
+			throw "(pred zero) is undefined";
 		else 
 			temp = new Pred(evalOnce(ast.argument));
 	} else if (ast instanceof Plus) {
@@ -903,6 +903,13 @@ class ExecutionContext {
 	private unaliases: Map<string, [string, string]> = new Map();
 	private typeContext = EmptyTypeContext();
 
+	get aliasesAsStrings(): Array<[string, string]> {
+		let res: Array<[string, string]> = [];
+		for (const [alias, expr] of this.unaliases)
+			res.push([alias, expr[0]]);
+		return res;
+	}
+
 	get aliases(): [string, string, string][] {
 		let res: [string, string, string][] = [];
 		for (const [alias, [expr, exprType]] of this.unaliases)
@@ -947,6 +954,11 @@ class ExecutionContext {
 		
 		this._aliases.set(alias, ast);
 		this.unaliases.set(alias, [expr, exprType.toString()]);
+	}
+
+	removeAlias(alias: string): boolean {
+		this._aliases.delete(alias);
+		return this.unaliases.delete(alias);
 	}
 
 	forAlsOnce(expr: AstNode): AstNode {
@@ -995,6 +1007,9 @@ class ExecutionContext {
 
 	evaluate(expr: string): AstNode {
 		let ast1 = parse(tokenize(expr));
+
+		const _ = typeOf(ast1, this.typeContext);
+
 		ast1 = parse(tokenize(this.forAlsOnce(ast1).toString()));
 
 		ast1 = evalOnce(ast1);
@@ -1003,32 +1018,41 @@ class ExecutionContext {
 			while (!astEqual(ast1, ast2)) {
 				[ast1, ast2] = [ast2, evalOnce(ast2)];
 			}
-			[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast1).toString()))];
+			[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast2).toString()))];
 		}
 		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
 		return ast2;
 	}
 
-	evaluateVerose(expr: string): string[] {
-		let result: string[] = [];
+	// verboseEvaluate(expr: string): [string, string][] {
+	// 	let result: [string, string][] = [];
 
-		let ast1 = parse(tokenize(expr));
-		result.push(`λ> ${ast1}`);
+	// 	let ast1 = parse(tokenize(expr));
+	// 	result.push(["λ>", `${ast1}`]);
 
-		ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
-		result.push(`≡> ${ast1}`);
+	// 	ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
+	// 	result.push(["≡>", `${ast1}`]);
 
-		let ast2 = evalOnce(ast1);
-		while (!astEqual(ast1, ast2)) {
-			result.push(`β> ${ast2}`);
-			[ast1, ast2] = [ast2, evalOnce(ast2)];
-		}
+	// 	// let ast2 = evalOnce(ast1);
+	// 	// while (!astEqual(ast1, ast2)) {
+	// 	// 	result.push(["β>", `${ast2}`]);
+	// 	// 	[ast1, ast2] = [ast2, evalOnce(ast2)];
+	// 	// }
 
-		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
-		result.push(`≡> ${ast1}`);
+	// 	let ast2 = evalOnce(ast1);
+	// 	while (!astEqual(ast1, ast2)) {
+	// 		while (!astEqual(ast1, ast2)) {
+	// 			result.push(["β>", `${ast2}`]);
+	// 			[ast1, ast2] = [ast2, evalOnce(ast2)];
+	// 		}
+	// 		[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast2).toString()))];
+	// 	}
 
-		return result;
-	}
+	// 	ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
+	// 	result.push(["≡>" ,`${ast2}`]);
+
+	// 	return result;
+	// }
 }
 
 export {
