@@ -1024,35 +1024,36 @@ class ExecutionContext {
 		return ast2;
 	}
 
-	// verboseEvaluate(expr: string): [string, string][] {
-	// 	let result: [string, string][] = [];
+	verboseEvaluate(expr: string): Array<[string, string]> {
+		let result: Array<[string, string]> = [];
 
-	// 	let ast1 = parse(tokenize(expr));
-	// 	result.push(["λ>", `${ast1}`]);
+		let ast1 = parse(tokenize(expr));
+		result.push(["λ>", `${ast1}`]);
 
-	// 	ast1 = parse(tokenize(this.forwardAlias(ast1).toString()));
-	// 	result.push(["≡>", `${ast1}`]);
+		ast1 = parse(tokenize(this.forAlsOnce(ast1).toString()));
+		result.push(["≡>", `${ast1}`]);
 
-	// 	// let ast2 = evalOnce(ast1);
-	// 	// while (!astEqual(ast1, ast2)) {
-	// 	// 	result.push(["β>", `${ast2}`]);
-	// 	// 	[ast1, ast2] = [ast2, evalOnce(ast2)];
-	// 	// }
+		// let ast2 = evalOnce(ast1);
+		// while (!astEqual(ast1, ast2)) {
+		// 	result.push(["β>", `${ast2}`]);
+		// 	[ast1, ast2] = [ast2, evalOnce(ast2)];
+		// }
 
-	// 	let ast2 = evalOnce(ast1);
-	// 	while (!astEqual(ast1, ast2)) {
-	// 		while (!astEqual(ast1, ast2)) {
-	// 			result.push(["β>", `${ast2}`]);
-	// 			[ast1, ast2] = [ast2, evalOnce(ast2)];
-	// 		}
-	// 		[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast2).toString()))];
-	// 	}
+		let ast2 = evalOnce(ast1);
+		while (!astEqual(ast1, ast2)) {
+			while (!astEqual(ast1, ast2)) {
+				result.push(["β>", `${ast2}`]);
+				[ast1, ast2] = [ast2, evalOnce(ast2)];
+			}
+			result.push(["≡>", `${ast2}`]);
+			[ast1, ast2] = [ast2, parse(tokenize(this.forAlsOnce(ast2).toString()))];
+		}
 
-	// 	ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
-	// 	result.push(["≡>" ,`${ast2}`]);
+		ast2 = parse(tokenize(this.backwardAlias(ast2).toString()));
+		result.push(["≡>" ,`${ast2}`]);
 
-	// 	return result;
-	// }
+		return result;
+	}
 }
 
 export {

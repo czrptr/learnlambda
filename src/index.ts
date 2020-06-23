@@ -101,6 +101,16 @@ exeContext.addAlias("and", "λx:Bool.λy:Bool.if x then y else false");
 exeContext.addAlias("xor", "λx:Bool.λy:Bool.and (or x y) (or (not x) (not y))");
 exeContext.addAlias("leq", "λx:Nat.λy:Nat.iszero (minus x y)");
 exeContext.addAlias("eq", "λx:Nat.λy:Nat.and (leq x y) (leq y x)");
+exeContext.addAlias("one", "succ zero");
+exeContext.addAlias("two", "succ one");
+exeContext.addAlias("three", "succ two");
+exeContext.addAlias("four", "succ three");
+exeContext.addAlias("five", "succ four");
+exeContext.addAlias("six", "succ five");
+exeContext.addAlias("seven", "succ six");
+exeContext.addAlias("eight", "succ seven");
+exeContext.addAlias("nine", "succ eight");
+exeContext.addAlias("ten", "succ nine");
 exeContext.addAliasWithType("sumTo", "Nat -> Nat", "λx:Nat.if (eq x zero) then zero else (plus x (sumTo (pred x)))");
 
 
@@ -220,8 +230,15 @@ input.on("beforeChange", (sender, change) => {
 
 		// eval command
 		try {
-			const result = exeContext.evaluate(expr);
-			appendHistory("λ> " + result);
+			if (verboseMode()) {
+				const result = exeContext.verboseEvaluate(expr);
+				for (const [type, expr] of result) {
+					appendHistory(type + " " + expr);
+				}
+			} else {
+				const result = exeContext.evaluate(expr);
+				appendHistory("λ> " + result);
+			}
 		} catch (e) {
 			if (e instanceof ParseError || e instanceof TypeingError) {
 				appendHistory("ε> " + expr + "\n   " + e.positionString + "\n" + e.message);
